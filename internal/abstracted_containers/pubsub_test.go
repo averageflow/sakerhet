@@ -1,46 +1,48 @@
 package abstractedcontainers_test
 
+// Basic imports
 import (
 	"context"
-
-	"github.com/google/uuid"
-	. "github.com/onsi/ginkgo/v2"
-
-	//. "github.com/onsi/gomega"
+	"log"
+	"os"
+	"testing"
+	"time"
 
 	abstractedcontainers "github.com/averageflow/sakerhet/internal/abstracted_containers"
+	"github.com/google/uuid"
 )
 
-var _ = Describe("Pubsub", func() {
+func TestExample(t *testing.T) {
 	topicID := "topic-" + uuid.New().String()
 	subscriptionID := "sub-" + uuid.New().String()
 
-	ctx := context.Background()
+	log.Printf("topic: %s , subscription: %s", topicID, subscriptionID)
+
+	ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
 
 	pubSubC, err := abstractedcontainers.SetupPubsub(ctx)
 	if err != nil {
-		panic(err.Error())
+		t.Error(err)
 	}
+
+	os.Setenv("PUBSUB_EMULATOR_HOST", pubSubC.URI)
 
 	// Clean up the container after the test is complete
 	defer pubSubC.Terminate(ctx)
 
-	It("can publish to the Pub/Sub container without errors", func() {
-		topic, err := abstractedcontainers.GetOrCreateTopic(pubSubC.URI, topicID)
-		if err != nil {
-			Fail(err.Error())
-		}
+	topic, err := abstractedcontainers.GetOrCreateTopic(ctx, pubSubC.URI, topicID)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
-		if err := abstractedcontainers.SendMessageToPubSub(pubSubC.URI, topic); err != nil {
-			Fail(err.Error())
-		}
+	if err := abstractedcontainers.SendMessageToPubSub(ctx, pubSubC.URI, topic); err != nil {
+		t.Error(err)
+		return
+	}
 
-		if err := abstractedcontainers.CheckMessageReceived(pubSubC.URI, topic, subscriptionID); err != nil {
-			Fail(err.Error())
-		}
-	})
-
-	// BeforeEach(func() {
-	//
-	// })
-})
+	if err := abstractedcontainers.CheckMessageReceived(ctx, pubSubC.URI, topic, subscriptionID); err != nil {
+		t.Error(err)
+		return
+	}
+}
