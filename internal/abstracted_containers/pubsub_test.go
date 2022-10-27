@@ -6,64 +6,56 @@ import (
 	"fmt"
 	"os"
 	"testing"
-	"time"
 
+	"cloud.google.com/go/pubsub"
 	abstractedcontainers "github.com/averageflow/sakerhet/internal/abstracted_containers"
+	"github.com/google/uuid"
 )
 
-// func TestWithRedis(t *testing.T) {
-// 	ctx := context.Background()
-// 	req := testcontainers.ContainerRequest{
-// 		Image:        "redis:latest",
-// 		ExposedPorts: []string{"6379/tcp"},
-// 		WaitingFor:   wait.ForLog("Ready to accept connections"),
-// 	}
-// 	redisC, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-// 		ContainerRequest: req,
-// 		Started:          true,
-// 	})
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
-// 	defer redisC.Terminate(ctx)
-// }
+func TestPubSub(t *testing.T) {
+	projectID := "test-project"
+	topicID := "test-topic-" + uuid.New().String()
+	subscriptionID := "test-sub-" + uuid.New().String()
 
-func TestExample(t *testing.T) {
-	// topicID := "topic-" + uuid.New().String()
-	// subscriptionID := "sub-" + uuid.New().String()
-	topicID := "myTopic"
-	subscriptionID := "mySub"
+	ctx := context.TODO()
 
-	fmt.Printf("topic: %s , subscription: %s", topicID, subscriptionID)
+	topicSubscriptionMap := map[string][]string{
+		topicID: {subscriptionID},
+	}
 
-	ctx, _ := context.WithTimeout(context.Background(), 2000*time.Second)
-
-	pubSubC, err := abstractedcontainers.SetupPubsub(ctx)
+	pubSubC, err := abstractedcontainers.SetupGCPPubsub(ctx, projectID, topicSubscriptionMap)
 	if err != nil {
 		t.Error(err)
 	}
 
-	os.Setenv("PUBSUB_EMULATOR_HOST", pubSubC.URI)
-	// os.Setenv("PUBSUB_EMULATOR_HOST", "localhost:8085")
-
-	// Clean up the container after the test is complete
+	// clean up the container after the test is complete
 	defer pubSubC.Terminate(ctx)
 
-	topic, err := abstractedcontainers.GetOrCreateTopic(ctx, pubSubC.URI, topicID)
-	// topic, err := abstractedcontainers.GetOrCreateTopic(ctx, "localhost:8085", topicID)
+	fmt.Printf("New container started, accessible at: %s", pubSubC.URI)
+
+	// required so that all Pub/Sub calls go to docker container, and not GCP
+	os.Setenv("PUBSUB_EMULATOR_HOST", pubSubC.URI)
+
+	client, err := pubsub.NewClient(context.TODO(), projectID)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	if err := abstractedcontainers.SendMessageToPubSub(ctx, pubSubC.URI, topic); err != nil {
-		// if err := abstractedcontainers.SendMessageToPubSub(ctx, "localhost:8085", topic); err != nil {
+	defer client.Close()
+
+	topic, err := abstractedcontainers.GetOrCreateGCPTopic(ctx, client, topicID)
+	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	if err := abstractedcontainers.CheckMessageReceived(ctx, pubSubC.URI, topic, subscriptionID); err != nil {
-		// if err := abstractedcontainers.CheckMessageReceived(ctx, "localhost:8085", topic, subscriptionID); err != nil {
+	if err := abstractedcontainers.PublishToGCPTopic(ctx, client, topic); err != nil {
+		t.Error(err)
+		return
+	}
+
+	if err := abstractedcontainers.CheckGCPMessageInSub(ctx, client, subscriptionID); err != nil {
 		t.Error(err)
 		return
 	}

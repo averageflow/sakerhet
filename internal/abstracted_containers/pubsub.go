@@ -3,34 +3,62 @@ package abstractedcontainers
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"cloud.google.com/go/pubsub"
+	"github.com/docker/go-connections/nat"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-type PubSubContainer struct {
+type GCPPubSubContainer struct {
 	testcontainers.Container
-	URI string
+	URI               string
+	LivenessProbePort nat.Port
+	PubSubPort        nat.Port
 }
 
-func SetupPubsub(ctx context.Context) (*PubSubContainer, error) {
+func serializeTopicSubscriptionMapForDockerEnv(topicSubscriptionMap map[string][]string) string {
+	var serialized string
+
+	for i, v := range topicSubscriptionMap {
+		serialized += i
+
+		for _, vv := range v {
+			serialized += fmt.Sprintf(":%s", vv)
+		}
+	}
+
+	return serialized
+}
+
+func SetupGCPPubsub(ctx context.Context, projectID string, topicSubscriptionMap map[string][]string) (*GCPPubSubContainer, error) {
+	livenessProbePort, err := nat.NewPort("tcp", "8682")
+	if err != nil {
+		return nil, err
+	}
+
+	pubSubPort, err := nat.NewPort("tcp", "8681")
+	if err != nil {
+		return nil, err
+	}
+
 	req := testcontainers.ContainerRequest{
-		Image:        "thekevjames/gcloud-pubsub-emulator:latest",
-		ExposedPorts: []string{"8682/tcp", "8681/tcp"},
-		Env: map[string]string{
-			// "PUBSUB_PROJECT1": "PROJECTID,TOPIC1,TOPIC2:SUBSCRIPTION1:SUBSCRIPTION2,TOPIC3:SUBSCRIPTION3"
-			// "PUBSUB_PROJECT1": "myProject,myTopic:mySub",
-			"PUBSUB_PROJECT1": "myProject,myTopic",
+		Image: "thekevjames/gcloud-pubsub-emulator:latest",
+		ExposedPorts: []string{
+			fmt.Sprintf("%s/%s", livenessProbePort.Port(), livenessProbePort.Proto()),
+			fmt.Sprintf("%s/%s", pubSubPort.Port(), pubSubPort.Proto()),
 		},
-		//Hostname:     "0.0.0.0",
-		//WaitingFor:   wait.ForLog("[pubsub] INFO: Server started, listening on 8538"),
-		//NetworkMode:  "bridge",
-		WaitingFor: wait.NewHostPortStrategy("8682"),
-		//Cmd:        []string{"gcloud beta emulators pubsub start --project=test_project --host-port=0.0.0.0:8085"},
-		// Cmd: []string{"gcloud beta emulators pubsub start --project=test_project --host-port=0.0.0.0:8085"},
+		Env: map[string]string{
+			// specify the topics and subscriptions to be created, in the docker container's environment variable
+			// "PUBSUB_PROJECT1": "PROJECTID,TOPIC1,TOPIC2:SUBSCRIPTION1:SUBSCRIPTION2,TOPIC3:SUBSCRIPTION3"
+			"PUBSUB_PROJECT1": fmt.Sprintf("%s,%s", projectID, serializeTopicSubscriptionMapForDockerEnv(topicSubscriptionMap)),
+		},
+		// await until communication is possible on liveness probe port, then proceed
+		WaitingFor: wait.NewHostPortStrategy(livenessProbePort),
 	}
 
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
@@ -46,95 +74,81 @@ func SetupPubsub(ctx context.Context) (*PubSubContainer, error) {
 		return nil, err
 	}
 
-	mappedPort, err := container.MappedPort(ctx, "8681")
+	mappedPort, err := container.MappedPort(ctx, pubSubPort)
 	if err != nil {
 		return nil, err
 	}
 
 	uri := fmt.Sprintf("%s:%s", ip, mappedPort.Port())
-	// uri := fmt.Sprintf("172.17.0.1:%s", mappedPort.Port())
-	fmt.Printf("New container started, accessible at: %s", uri)
 
-	return &PubSubContainer{Container: container, URI: uri}, nil
+	return &GCPPubSubContainer{
+		Container:         container,
+		URI:               uri,
+		LivenessProbePort: livenessProbePort,
+		PubSubPort:        pubSubPort,
+	}, nil
 }
 
-func GetOrCreateTopic(ctx context.Context, uri, topicID string) (*pubsub.Topic, error) {
-	client, err := pubsub.NewClient(context.TODO(), "myProject")
-	if err != nil {
-		return nil, err
-	}
-
-	fmt.Println("Pub/Sub client created")
-	fmt.Printf("%+v", client)
-
-	defer client.Close()
-
+func GetOrCreateGCPTopic(ctx context.Context, client *pubsub.Client, topicID string) (*pubsub.Topic, error) {
 	topic := client.Topic(topicID)
 
-	// Create the topic if it doesn't exist.
-	exists, err := topic.Exists(context.TODO())
+	ok, err := topic.Exists(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	if !exists {
-		fmt.Printf("Topic %v doesn't exist - creating it", topicID)
-
-		if _, err = client.CreateTopic(context.TODO(), topicID); err != nil {
+	if !ok {
+		if _, err = client.CreateTopic(ctx, topicID); err != nil {
 			return nil, err
 		}
-	} else {
-		fmt.Println("Not required to create topic, it exists")
 	}
 
 	return topic, nil
 }
 
-func SendMessageToPubSub(ctx context.Context, uri string, topic *pubsub.Topic) error {
-	msg := &pubsub.Message{
-		Data: []byte("This is a test message!"),
+func PublishToGCPTopic(ctx context.Context, client *pubsub.Client, topic *pubsub.Topic) error {
+	var wg sync.WaitGroup
+	var totalErrors uint64
+
+	result := topic.Publish(ctx, &pubsub.Message{
+		Data: []byte("Message " + strconv.Itoa(1)),
+	})
+
+	wg.Add(1)
+	go func(res *pubsub.PublishResult) {
+		defer wg.Done()
+		// The Get method blocks until a server-generated ID or
+		// an error is returned for the published message.
+		id, err := res.Get(ctx)
+		if err != nil {
+			// Error handling code can be added here.
+			fmt.Printf("Failed to publish: %v", err)
+			atomic.AddUint64(&totalErrors, 1)
+			return
+		}
+		fmt.Printf("Published message %d; msg ID: %v\n", 1, id)
+	}(result)
+
+	wg.Wait()
+
+	if totalErrors > 0 {
+		return fmt.Errorf("%d messages did not publish successfully", totalErrors)
 	}
-
-	fmt.Println("About to publish message!")
-
-	// if _, err := topic.Publish(context.TODO(), msg).Get(context.TODO()); err != nil {
-	// 	return err
-	// }
-
-	res := topic.Publish(context.TODO(), msg)
-	// if _, err := .Get(context.TODO()); err != nil {
-	// 	return err
-	// }
-
-	fmt.Printf("%+v", res)
-
-	fmt.Println("Message published.")
 	return nil
 }
 
-func CheckMessageReceived(ctx context.Context, uri string, topic *pubsub.Topic, subscriptionID string) error {
-	client, err := pubsub.NewClient(context.TODO(), "myProject")
-	if err != nil {
-		return err
-	}
+// Receive messages for 10 seconds, which simplifies testing.
+// Comment this out in production, since `Receive` should
+// be used as a long running operation.
+func CheckGCPMessageInSub(ctx context.Context, client *pubsub.Client, subscriptionID string) error {
+	sub := client.Subscription(subscriptionID)
 
-	defer client.Close()
-
-	sub, err := client.CreateSubscription(ctx, subscriptionID, pubsub.SubscriptionConfig{
-		Topic: topic,
-	})
-
-	// sub := client.Subscription("mySub")
-
-	// Receive messages for 10 seconds, which simplifies testing.
-	// Comment this out in production, since `Receive` should
-	// be used as a long running operation.
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	var received int32
 
-	err = sub.Receive(ctx, func(_ context.Context, msg *pubsub.Message) {
+	err := sub.Receive(ctx, func(_ context.Context, msg *pubsub.Message) {
 		fmt.Printf("Got message: %q\n", string(msg.Data))
 		atomic.AddInt32(&received, 1)
 		msg.Ack()
@@ -146,29 +160,4 @@ func CheckMessageReceived(ctx context.Context, uri string, topic *pubsub.Topic, 
 	fmt.Printf("Received %d messages\n", received)
 
 	return nil
-
-	// cctx, cancel := context.WithCancel(context.TODO())
-	// okCh := make(chan string)
-
-	// go func() {
-	// 	// Use a callback to receive messages via subscription.
-	// 	// Receive will block until the context is cancelled, or we get a non-recoverable error
-	// 	err = sub.Receive(cctx, func(_ context.Context, m *pubsub.Message) {
-	// 		m.Ack()
-	// 		okCh <- string(m.Data)
-	// 		cancel()
-	// 	})
-	// }()
-
-	// select {
-	// case msg := <-okCh:
-	// 	if msg != "This is a test message!" {
-	// 		return fmt.Errorf("")
-	// 	}
-	// case <-time.After(300000 * time.Millisecond):
-	// 	cancel()
-	// 	return fmt.Errorf("did not receive message within deadline")
-	// }
-
-	// return nil
 }
