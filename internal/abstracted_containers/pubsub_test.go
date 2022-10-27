@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"cloud.google.com/go/pubsub"
 	abstractedcontainers "github.com/averageflow/sakerhet/internal/abstracted_containers"
@@ -31,7 +32,7 @@ func TestPubSub(t *testing.T) {
 	// clean up the container after the test is complete
 	defer pubSubC.Terminate(ctx)
 
-	fmt.Printf("New container started, accessible at: %s", pubSubC.URI)
+	fmt.Printf("New container started, accessible at: %s\n", pubSubC.URI)
 
 	// required so that all Pub/Sub calls go to docker container, and not GCP
 	os.Setenv("PUBSUB_EMULATOR_HOST", pubSubC.URI)
@@ -50,12 +51,15 @@ func TestPubSub(t *testing.T) {
 		return
 	}
 
-	if err := abstractedcontainers.PublishToGCPTopic(ctx, client, topic); err != nil {
+	wantedData := []byte(`{"myKey": "myValue"}`)
+
+	if err := abstractedcontainers.PublishToGCPTopic(ctx, client, topic, wantedData); err != nil {
 		t.Error(err)
 		return
 	}
 
-	if err := abstractedcontainers.CheckGCPMessageInSub(ctx, client, subscriptionID); err != nil {
+	expectedData := [][]byte{[]byte(wantedData)}
+	if err := abstractedcontainers.CheckGCPMessageInSub(ctx, client, subscriptionID, expectedData, 100*time.Millisecond); err != nil {
 		t.Error(err)
 		return
 	}

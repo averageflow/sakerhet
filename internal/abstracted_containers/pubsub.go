@@ -3,7 +3,7 @@ package abstractedcontainers
 import (
 	"context"
 	"fmt"
-	"strconv"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -106,12 +106,12 @@ func GetOrCreateGCPTopic(ctx context.Context, client *pubsub.Client, topicID str
 	return topic, nil
 }
 
-func PublishToGCPTopic(ctx context.Context, client *pubsub.Client, topic *pubsub.Topic) error {
+func PublishToGCPTopic(ctx context.Context, client *pubsub.Client, topic *pubsub.Topic, wantedData []byte) error {
 	var wg sync.WaitGroup
 	var totalErrors uint64
 
 	result := topic.Publish(ctx, &pubsub.Message{
-		Data: []byte("Message " + strconv.Itoa(1)),
+		Data: wantedData,
 	})
 
 	wg.Add(1)
@@ -137,27 +137,34 @@ func PublishToGCPTopic(ctx context.Context, client *pubsub.Client, topic *pubsub
 	return nil
 }
 
-// Receive messages for 10 seconds, which simplifies testing.
-// Comment this out in production, since `Receive` should
-// be used as a long running operation.
-func CheckGCPMessageInSub(ctx context.Context, client *pubsub.Client, subscriptionID string) error {
+// Receive messages for 3 seconds, which simplifies testing.
+func CheckGCPMessageInSub(ctx context.Context, client *pubsub.Client, subscriptionID string, wantedData [][]byte, timeToWait time.Duration) error {
 	sub := client.Subscription(subscriptionID)
 
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, timeToWait)
 	defer cancel()
 
-	var received int32
+	var receivedData [][]byte
 
 	err := sub.Receive(ctx, func(_ context.Context, msg *pubsub.Message) {
 		fmt.Printf("Got message: %q\n", string(msg.Data))
-		atomic.AddInt32(&received, 1)
+		receivedData = append(receivedData, msg.Data)
 		msg.Ack()
+		// cancel()
 	})
 	if err != nil {
 		return fmt.Errorf("sub.Receive: %v", err)
 	}
 
-	fmt.Printf("Received %d messages\n", received)
+	fmt.Printf("Received %d messages\n", len(receivedData))
+
+	if !reflect.DeepEqual(wantedData, receivedData) {
+		return fmt.Errorf(
+			"received data is different than expected:\n received %v\n expected %v\n",
+			receivedData,
+			wantedData,
+		)
+	}
 
 	return nil
 }
