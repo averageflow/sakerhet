@@ -24,34 +24,33 @@ func TestHighLevelIntegrationTestGCPPubSub(t *testing.T) {
 	defer cancel()
 
 	i := sakerhet.IntegrationTest{
-		GCPPubSubData: &sakerhet.IntegrationTestGCPPubSubData{
+		GCPPubSubIntegrationTester: &sakerhet.GCPPubSubIntegrationTester{
 			ProjectID:      "test-project",
 			TopicID:        "test-topic-" + uuid.New().String(),
 			SubscriptionID: "test-sub-" + uuid.New().String(),
+			TestContext:    ctx,
 		},
-		TestContext: ctx,
-		T:           t,
 	}
 
-	pubSubC, err := i.GCPPubSubContainerStart()
+	pubSubC, err := i.GCPPubSubIntegrationTester.ContainerStart()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	defer func() {
-		_ = pubSubC.Terminate(i.TestContext)
+		_ = pubSubC.Terminate(ctx)
 	}()
 
 	wantedData := []byte(`{"myKey": "myValue"}`)
 
 	// when
-	if err := i.GCPPubSubPublishData(wantedData); err != nil {
+	if err := i.GCPPubSubIntegrationTester.PublishData(wantedData); err != nil {
 		t.Fatal(err)
 	}
 
 	// then
 	expectedData := [][]byte{[]byte(wantedData)}
-	if err := i.GCPPubSubContainsWantedMessages(
+	if err := i.GCPPubSubIntegrationTester.ContainsWantedMessages(
 		1000*time.Millisecond,
 		expectedData,
 	); err != nil {
@@ -155,31 +154,30 @@ func TestHighLevelIntegrationTestOfServiceThatUsesGCPPubSub(t *testing.T) {
 	defer cancel()
 
 	i := sakerhet.IntegrationTest{
-		GCPPubSubData: &sakerhet.IntegrationTestGCPPubSubData{
+		GCPPubSubIntegrationTester: &sakerhet.GCPPubSubIntegrationTester{
+			TestContext:    ctx,
 			ProjectID:      "test-project",
 			TopicID:        "test-topic-" + uuid.New().String(),
 			SubscriptionID: "test-sub-" + uuid.New().String(),
 		},
-		TestContext: ctx,
-		T:           t,
 	}
 
-	pubSubC, err := i.GCPPubSubContainerStart()
+	pubSubC, err := i.GCPPubSubIntegrationTester.ContainerStart()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	defer func() {
-		_ = pubSubC.Terminate(i.TestContext)
+		_ = pubSubC.Terminate(ctx)
 	}()
 
 	// when
 	ponService := NewMyPowerOfNService()
 
 	if err := ponService.publishResult(
-		i.TestContext,
-		i.GCPPubSubData.ProjectID,
-		i.GCPPubSubData.TopicID,
+		ctx,
+		i.GCPPubSubIntegrationTester.ProjectID,
+		i.GCPPubSubIntegrationTester.TopicID,
 		ponService.toPowerOfN(3, 3),
 	); err != nil {
 		t.Fatal(err)
@@ -187,7 +185,7 @@ func TestHighLevelIntegrationTestOfServiceThatUsesGCPPubSub(t *testing.T) {
 
 	// then
 	expectedData := [][]byte{[]byte(`{"computationResult": 27.00}`)}
-	if err := i.GCPPubSubContainsWantedMessages(
+	if err := i.GCPPubSubIntegrationTester.ContainsWantedMessages(
 		1000*time.Millisecond,
 		expectedData,
 	); err != nil {
