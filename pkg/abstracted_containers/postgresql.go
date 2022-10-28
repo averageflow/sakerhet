@@ -4,9 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/docker/go-connections/nat"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
@@ -70,18 +73,21 @@ func SetupPostgreSQL(ctx context.Context) (*postgreSQLContainer, error) {
 	}, nil
 }
 
-func initPostgreSQL(ctx context.Context, db sql.DB) error {
-	// Actual SQL for initializing the database should probably live elsewhere
-	const query = `CREATE DATABASE projectmanagement;
-        CREATE TABLE projectmanagement.task(
-            id uuid primary key not null,
-            description varchar(255) not null,
-            date_due timestamp with time zone,
-            date_created timestamp with time zone not null,
-            date_updated timestamp with time zone not null);`
-	_, err := db.ExecContext(ctx, query)
+func InitPostgreSQLSchema(ctx context.Context, db *pgxpool.Pool, schema []string) error {
+	query := strings.Join(schema, ";\n")
 
-	return err
+	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
+	defer tx.Rollback(ctx)
+
+	if err != nil {
+		return err
+	}
+
+	if _, err := tx.Conn().Exec(ctx, query); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
 
 func truncatePostgreSQL(ctx context.Context, db sql.DB) error {
