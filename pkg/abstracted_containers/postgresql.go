@@ -2,7 +2,6 @@ package abstractedcontainers
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"strings"
 
@@ -77,7 +76,9 @@ func InitPostgreSQLSchema(ctx context.Context, db *pgxpool.Pool, schema []string
 	query := strings.Join(schema, ";\n")
 
 	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
-	defer tx.Rollback(ctx)
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
 
 	if err != nil {
 		return err
@@ -92,7 +93,9 @@ func InitPostgreSQLSchema(ctx context.Context, db *pgxpool.Pool, schema []string
 
 func InitPostgreSQLDataInTable(ctx context.Context, db *pgxpool.Pool, query string, data [][]any) error {
 	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
-	defer tx.Rollback(ctx)
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
 
 	if err != nil {
 		return err
@@ -107,9 +110,9 @@ func InitPostgreSQLDataInTable(ctx context.Context, db *pgxpool.Pool, query stri
 	return tx.Commit(ctx)
 }
 
-func truncatePostgreSQL(ctx context.Context, db sql.DB) error {
-	const query = `TRUNCATE projectmanagement.task`
-
-	_, err := db.ExecContext(ctx, query)
-	return err
-}
+// func truncatePostgreSQL(ctx context.Context, db sql.DB) error {
+// 	const query = `TRUNCATE projectmanagement.task`
+//
+// 	_, err := db.ExecContext(ctx, query)
+// 	return err
+// }

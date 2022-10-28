@@ -73,11 +73,11 @@ func TestLowLevelIntegrationTestPostgreSQL(t *testing.T) {
 	getQuery := `SELECT user_id, username, email, age, created_on FROM accounts;`
 
 	rows, err := dbpool.Query(ctx, getQuery)
-	defer rows.Close()
-
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	defer rows.Close()
 
 	var result []account
 
