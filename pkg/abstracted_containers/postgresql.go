@@ -90,6 +90,23 @@ func InitPostgreSQLSchema(ctx context.Context, db *pgxpool.Pool, schema []string
 	return tx.Commit(ctx)
 }
 
+func InitPostgreSQLDataInTable(ctx context.Context, db *pgxpool.Pool, query string, data [][]any) error {
+	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
+	defer tx.Rollback(ctx)
+
+	if err != nil {
+		return err
+	}
+
+	for _, v := range data {
+		if _, err := tx.Conn().Exec(ctx, query, v...); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
 func truncatePostgreSQL(ctx context.Context, db sql.DB) error {
 	const query = `TRUNCATE projectmanagement.task`
 
