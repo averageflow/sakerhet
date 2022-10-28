@@ -1,15 +1,22 @@
 package sakerhet
 
+import "context"
+
+type IntegrationTestParams struct {
+	TestContext context.Context
+	GCPPubSub   *GCPPubSubIntegrationTestParams
+}
+
 type IntegrationTest struct {
 	GCPPubSubIntegrationTester *GCPPubSubIntegrationTester
 }
 
-func NewIntegrationTest(userInput IntegrationTest) IntegrationTest {
-	var result IntegrationTest
+func NewIntegrationTest(userInput IntegrationTestParams) IntegrationTest {
+	var newTest IntegrationTest
 
-	if userInput.GCPPubSubIntegrationTester != nil {
-		result.GCPPubSubIntegrationTester = userInput.GCPPubSubIntegrationTester
+	if userInput.GCPPubSub != nil {
+		newTest.GCPPubSubIntegrationTester = NewGCPPubSubIntegrationTester(userInput.TestContext, userInput.GCPPubSub)
 	}
 
-	return result
+	return newTest
 }

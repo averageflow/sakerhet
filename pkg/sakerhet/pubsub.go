@@ -8,13 +8,50 @@ import (
 
 	"cloud.google.com/go/pubsub"
 	abstractedcontainers "github.com/averageflow/sakerhet/pkg/abstracted_containers"
+	"github.com/google/uuid"
 )
+
+type GCPPubSubIntegrationTestParams struct {
+	ProjectID      string
+	TopicID        string
+	SubscriptionID string
+}
 
 type GCPPubSubIntegrationTester struct {
 	TestContext    context.Context
 	ProjectID      string
 	TopicID        string
 	SubscriptionID string
+}
+
+func NewGCPPubSubIntegrationTester(ctx context.Context, g *GCPPubSubIntegrationTestParams) *GCPPubSubIntegrationTester {
+	newTester := &GCPPubSubIntegrationTester{}
+
+	if g.ProjectID == "" {
+		newTester.ProjectID = "test-project"
+	} else {
+		newTester.ProjectID = g.ProjectID
+	}
+
+	if g.TopicID == "" {
+		newTester.TopicID = "test-topic-" + uuid.New().String()
+	} else {
+		newTester.TopicID = g.TopicID
+	}
+
+	if g.SubscriptionID == "" {
+		newTester.SubscriptionID = "test-sub-" + uuid.New().String()
+	} else {
+		newTester.SubscriptionID = g.SubscriptionID
+	}
+
+	if ctx == nil {
+		newTester.TestContext = context.TODO()
+	} else {
+		newTester.TestContext = ctx
+	}
+
+	return newTester
 }
 
 func (g *GCPPubSubIntegrationTester) ContainerStart() (*abstractedcontainers.GCPPubSubContainer, error) {

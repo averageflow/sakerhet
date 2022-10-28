@@ -23,14 +23,10 @@ func TestHighLevelIntegrationTestGCPPubSub(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*15))
 	defer cancel()
 
-	i := sakerhet.IntegrationTest{
-		GCPPubSubIntegrationTester: &sakerhet.GCPPubSubIntegrationTester{
-			ProjectID:      "test-project",
-			TopicID:        "test-topic-" + uuid.New().String(),
-			SubscriptionID: "test-sub-" + uuid.New().String(),
-			TestContext:    ctx,
-		},
-	}
+	i := sakerhet.NewIntegrationTest(sakerhet.IntegrationTestParams{
+		TestContext: ctx,
+		GCPPubSub:   &sakerhet.GCPPubSubIntegrationTestParams{},
+	})
 
 	pubSubC, err := i.GCPPubSubIntegrationTester.ContainerStart()
 	if err != nil {
@@ -153,14 +149,10 @@ func TestHighLevelIntegrationTestOfServiceThatUsesGCPPubSub(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*15))
 	defer cancel()
 
-	i := sakerhet.IntegrationTest{
-		GCPPubSubIntegrationTester: &sakerhet.GCPPubSubIntegrationTester{
-			TestContext:    ctx,
-			ProjectID:      "test-project",
-			TopicID:        "test-topic-" + uuid.New().String(),
-			SubscriptionID: "test-sub-" + uuid.New().String(),
-		},
-	}
+	i := sakerhet.NewIntegrationTest(sakerhet.IntegrationTestParams{
+		TestContext: ctx,
+		GCPPubSub:   &sakerhet.GCPPubSubIntegrationTestParams{},
+	})
 
 	pubSubC, err := i.GCPPubSubIntegrationTester.ContainerStart()
 	if err != nil {

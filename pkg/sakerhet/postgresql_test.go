@@ -11,6 +11,24 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+func TestHighLevelIntegrationTestPostgreSQL(t *testing.T) {
+	t.Parallel()
+
+	// given
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*15))
+	defer cancel()
+
+	postgreSQLC, err := abstractedcontainers.SetupPostgreSQL(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// clean up the container after the test is complete
+	defer func() {
+		_ = postgreSQLC.Terminate(ctx)
+	}()
+}
+
 func TestLowLevelIntegrationTestPostgreSQL(t *testing.T) {
 	t.Parallel()
 
