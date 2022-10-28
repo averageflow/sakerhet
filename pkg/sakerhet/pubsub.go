@@ -31,7 +31,7 @@ func NewGCPPubSubIntegrationTester(ctx context.Context, g *GCPPubSubIntegrationT
 	newTester := &GCPPubSubIntegrationTester{}
 
 	if g.ProjectID == "" {
-		newTester.ProjectID = "test-project"
+		newTester.ProjectID = "test-project-" + uuid.New().String()
 	} else {
 		newTester.ProjectID = g.ProjectID
 	}

@@ -19,7 +19,7 @@ import (
 
 // High level test on code that pushes to Pub/Sub
 func TestHighLevelIntegrationTestGCPPubSub(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 
 	// given
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*30))
@@ -100,7 +100,7 @@ func newMyPowerOfNService() myPowerOfNService {
 
 // High level test of a service that publishes to Pub/Sub
 func TestHighLevelIntegrationTestOfServiceThatUsesGCPPubSub(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 
 	// given
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*30))
