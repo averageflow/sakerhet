@@ -137,6 +137,16 @@ func PublishToGCPTopic(ctx context.Context, client *pubsub.Client, topic *pubsub
 	return nil
 }
 
+func toReadableSliceOfByteSlices(raw [][]byte) []string {
+	result := make([]string, len(raw))
+
+	for i := range raw {
+		result[i] = string(raw[i])
+	}
+
+	return result
+}
+
 // Receive messages for 3 seconds, which simplifies testing.
 func CheckGCPMessageInSub(ctx context.Context, client *pubsub.Client, subscriptionID string, wantedData [][]byte, timeToWait time.Duration) error {
 	sub := client.Subscription(subscriptionID)
@@ -161,8 +171,8 @@ func CheckGCPMessageInSub(ctx context.Context, client *pubsub.Client, subscripti
 	if !reflect.DeepEqual(wantedData, receivedData) {
 		return fmt.Errorf(
 			"received data is different than expected:\n received %v\n expected %v\n",
-			receivedData,
-			wantedData,
+			toReadableSliceOfByteSlices(receivedData),
+			toReadableSliceOfByteSlices(wantedData),
 		)
 	}
 
