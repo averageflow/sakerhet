@@ -77,7 +77,7 @@ func TestHighLevelIntegrationTestGCPPubSub(t *testing.T) {
 	// then
 	expectedData := [][]byte{[]byte(wantedData)}
 	if err := i.GCPPubSubIntegrationTester.ContainsWantedMessages(
-		3*time.Second,
+		1*time.Second,
 		expectedData,
 	); err != nil {
 		t.Fatal(err)
@@ -166,7 +166,7 @@ func TestHighLevelIntegrationTestOfServiceThatUsesGCPPubSub(t *testing.T) {
 	// then
 	expectedData := [][]byte{[]byte(`{"computationResult": 27.00}`)}
 	if err := i.GCPPubSubIntegrationTester.ContainsWantedMessages(
-		3*time.Second,
+		1*time.Second,
 		expectedData,
 	); err != nil {
 		t.Fatal(err)
@@ -234,7 +234,7 @@ func TestLowLevelIntegrationTestGCPPubSub(t *testing.T) {
 
 	// theNn
 	expectedData := [][]byte{[]byte(wantedData)}
-	if err := abstractedcontainers.CheckGCPMessageInSub(ctx, client, subscriptionID, expectedData, 3*time.Second); err != nil {
+	if err := abstractedcontainers.CheckGCPMessageInSub(ctx, client, subscriptionID, expectedData, 1*time.Second); err != nil {
 		t.Fatal(err)
 	}
 }

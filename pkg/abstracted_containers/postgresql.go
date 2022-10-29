@@ -40,12 +40,13 @@ func SetupPostgreSQL(ctx context.Context) (*postgreSQLContainer, error) {
 			"POSTGRES_USER":     postgreSQLUser,
 			"POSTGRES_DB":       postgreSQLDB,
 		},
-		AutoRemove: true,
+		Name: "postgresql",
 	}
 
 	postgreSQLC, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          true,
+		Reuse:            true,
 	})
 	if err != nil {
 		return nil, err
