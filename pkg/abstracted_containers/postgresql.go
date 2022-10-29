@@ -34,17 +34,19 @@ func SetupPostgreSQL(ctx context.Context) (*postgreSQLContainer, error) {
 	req := testcontainers.ContainerRequest{
 		Image:        "postgres:14.5",
 		ExposedPorts: []string{fmt.Sprintf("%s/%s", postgreSQLPort.Port(), postgreSQLPort.Proto())},
-		WaitingFor:   wait.NewHostPortStrategy(postgreSQLPort),
+		WaitingFor:   wait.ForListeningPort(postgreSQLPort),
 		Env: map[string]string{
 			"POSTGRES_PASSWORD": postgreSQLPassword,
 			"POSTGRES_USER":     postgreSQLUser,
 			"POSTGRES_DB":       postgreSQLDB,
 		},
+		Name: "postgresql",
 	}
 
 	postgreSQLC, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          true,
+		Reuse:            true,
 	})
 	if err != nil {
 		return nil, err
@@ -75,6 +77,7 @@ func SetupPostgreSQL(ctx context.Context) (*postgreSQLContainer, error) {
 func InitPostgreSQLSchema(ctx context.Context, db *pgxpool.Pool, schema []string) error {
 	query := strings.Join(schema, ";\n")
 
+	fmt.Printf("DB: %+v", db)
 	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
 	defer func() {
 		_ = tx.Rollback(ctx)

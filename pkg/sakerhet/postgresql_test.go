@@ -8,15 +8,22 @@ import (
 	"time"
 
 	abstractedcontainers "github.com/averageflow/sakerhet/pkg/abstracted_containers"
+	"github.com/averageflow/sakerhet/pkg/sakerhet"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestHighLevelIntegrationTestPostgreSQL(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 
 	// given
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*15))
 	defer cancel()
+
+	i := sakerhet.NewIntegrationTest(sakerhet.IntegrationTestParams{
+		TestContext: ctx,
+		PostgreSQL:  &sakerhet.PostgreSQLIntegrationTestParams{},
+	})
+	i.PostgreSQLIntegrationTester.PrintSomet()
 
 	postgreSQLC, err := abstractedcontainers.SetupPostgreSQL(ctx)
 	if err != nil {
@@ -30,10 +37,10 @@ func TestHighLevelIntegrationTestPostgreSQL(t *testing.T) {
 }
 
 func TestLowLevelIntegrationTestPostgreSQL(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 
 	// given
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*15))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*30))
 	defer cancel()
 
 	postgreSQLC, err := abstractedcontainers.SetupPostgreSQL(ctx)
@@ -75,10 +82,13 @@ func TestLowLevelIntegrationTestPostgreSQL(t *testing.T) {
 	seedData := [][]any{
 		{"myUser", "myEmail", 25, 1234567},
 	}
+
+	// when
 	if err := abstractedcontainers.InitPostgreSQLDataInTable(ctx, dbpool, insertQuery, seedData); err != nil {
 		t.Fatal(err)
 	}
 
+	// then
 	type account struct {
 		userId    int
 		username  string
@@ -87,7 +97,6 @@ func TestLowLevelIntegrationTestPostgreSQL(t *testing.T) {
 		createdOn int
 	}
 
-	// when
 	getQuery := `SELECT user_id, username, email, age, created_on FROM accounts;`
 
 	rows, err := dbpool.Query(ctx, getQuery)
