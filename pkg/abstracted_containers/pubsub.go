@@ -58,7 +58,8 @@ func SetupGCPPubsub(ctx context.Context, projectID string, topicSubscriptionMap 
 			"PUBSUB_PROJECT1": fmt.Sprintf("%s,%s", projectID, serializeTopicSubscriptionMapForDockerEnv(topicSubscriptionMap)),
 		},
 		// await until communication is possible on liveness probe port, then proceed
-		WaitingFor: wait.NewHostPortStrategy(livenessProbePort),
+		WaitingFor: wait.ForListeningPort(livenessProbePort),
+		AutoRemove: true,
 	}
 
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{

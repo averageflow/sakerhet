@@ -65,16 +65,14 @@ func (g *GCPPubSubIntegrationTester) ContainerStart() (*abstractedcontainers.GCP
 		return nil, err
 	}
 
-	fmt.Printf("New container started, accessible at: %s\n", pubSubC.URI)
+	fmt.Printf("GCP Pub/Sub container started, accessible at: %s\n", pubSubC.URI)
 
-	// required so that all Pub/Sub calls go to docker container, and not GCP
-	// os.Setenv("PUBSUB_EMULATOR_HOST", pubSubC.URI)
 	g.PubSubURI = pubSubC.URI
 
 	return pubSubC, nil
 }
 
-func (g *GCPPubSubIntegrationTester) createClient() (*pubsub.Client, error) {
+func (g *GCPPubSubIntegrationTester) CreateClient() (*pubsub.Client, error) {
 	conn, err := grpc.Dial(g.PubSubURI, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("grpc.Dial: %v", err)
@@ -94,28 +92,7 @@ func (g *GCPPubSubIntegrationTester) createClient() (*pubsub.Client, error) {
 }
 
 func (g *GCPPubSubIntegrationTester) ContainsWantedMessages(timeToTimeout time.Duration, expectedData [][]byte) error {
-	// client, err := pubsub.NewClient(g.TestContext, g.ProjectID)
-	// if err != nil {
-	// 	return err
-	// }
-	//
-	// defer client.Close()
-	// conn, err := grpc.Dial(g.PubSubURI, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	// if err != nil {
-	// 	return fmt.Errorf("grpc.Dial: %v", err)
-	// }
-
-	// o := []option.ClientOption{
-	// 	option.WithGRPCConn(conn),
-	// 	option.WithTelemetryDisabled(),
-	// }
-
-	// client, err := pubsub.NewClientWithConfig(g.TestContext, g.ProjectID, nil, o...)
-	// if err != nil {
-	// 	return err
-	// }
-
-	client, err := g.createClient()
+	client, err := g.CreateClient()
 	if err != nil {
 		return err
 	}
@@ -136,18 +113,12 @@ func (g *GCPPubSubIntegrationTester) ContainsWantedMessages(timeToTimeout time.D
 }
 
 func (g *GCPPubSubIntegrationTester) PublishData(wantedData []byte) error {
-	client, err := g.createClient()
+	client, err := g.CreateClient()
 	if err != nil {
 		return err
 	}
 
 	defer client.Close()
-	// client, err := pubsub.NewClient(g.TestContext, g.ProjectID)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// defer client.Close()
 
 	topic, err := abstractedcontainers.GetOrCreateGCPTopic(g.TestContext, client, g.TopicID)
 	if err != nil {
