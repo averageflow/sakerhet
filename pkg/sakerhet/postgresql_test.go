@@ -100,6 +100,7 @@ func (suite *PostgreSQLTestSuite) TestHighLevelIntegrationTestPostgreSQL() {
 				InsertQuery: `INSERT INTO accounts (username, email, age, created_on) VALUES ($1, $2, $3, $4);`,
 				InsertValues: [][]any{
 					{"myUser", "myEmail", 25, 1234567},
+					{"mySecondUser", "mySecondEmail", 50, 999999},
 				},
 			},
 		},
@@ -107,6 +108,7 @@ func (suite *PostgreSQLTestSuite) TestHighLevelIntegrationTestPostgreSQL() {
 			{
 				GetQuery: `SELECT user_id, username, email, age, created_on FROM accounts;`,
 				ExpectedValues: []any{
+					account{userId: 2, username: "mySecondUser", email: "mySecondEmail", age: 50, createdOn: 999999},
 					account{userId: 1, username: "myUser", email: "myEmail", age: 25, createdOn: 1234567},
 				},
 			},
