@@ -21,14 +21,16 @@ import (
 type GCPPubSubTestSuite struct {
 	suite.Suite
 	TestContext        context.Context
+	TestContextCancel  context.CancelFunc
 	GCPPubSubContainer *abstractedcontainers.GCPPubSubContainer
 	IntegrationTester  sakerhet.IntegrationTester
 }
 
 // before each test
 func (suite *GCPPubSubTestSuite) SetupSuite() {
-	ctx, _ := context.WithTimeout(context.Background(), time.Duration(time.Second*30))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*30))
 	suite.TestContext = ctx
+	suite.TestContextCancel = cancel
 
 	suite.IntegrationTester = sakerhet.NewIntegrationTest(sakerhet.IntegrationTesterParams{
 		TestContext: ctx,
@@ -44,7 +46,7 @@ func (suite *GCPPubSubTestSuite) SetupSuite() {
 }
 
 func (suite *GCPPubSubTestSuite) TearDownSuite() {
-	suite.GCPPubSubContainer.Terminate(suite.TestContext)
+	_ = suite.GCPPubSubContainer.Terminate(suite.TestContext)
 }
 
 func TestGCPPubSubTestSuite(t *testing.T) {

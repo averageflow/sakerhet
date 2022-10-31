@@ -16,14 +16,16 @@ import (
 type PostgreSQLTestSuite struct {
 	suite.Suite
 	TestContext         context.Context
+	TestContextCancel   context.CancelFunc
 	PostgreSQLContainer *abstractedcontainers.PostgreSQLContainer
 	IntegrationTester   sakerhet.IntegrationTester
 }
 
 // before each test
 func (suite *PostgreSQLTestSuite) SetupSuite() {
-	ctx, _ := context.WithTimeout(context.Background(), time.Duration(time.Second*30))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*30))
 	suite.TestContext = ctx
+	suite.TestContextCancel = cancel
 
 	suite.IntegrationTester = sakerhet.NewIntegrationTest(sakerhet.IntegrationTesterParams{
 		TestContext: ctx,
@@ -39,7 +41,7 @@ func (suite *PostgreSQLTestSuite) SetupSuite() {
 }
 
 func (suite *PostgreSQLTestSuite) TearDownSuite() {
-	suite.PostgreSQLContainer.Terminate(suite.TestContext)
+	_ = suite.PostgreSQLContainer.Terminate(suite.TestContext)
 }
 
 func TestPostgreSQLTestSuite(t *testing.T) {
