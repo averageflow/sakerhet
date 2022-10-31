@@ -25,7 +25,6 @@ type PostgreSQLTestSuite struct {
 	DBPool              *pgxpool.Pool
 }
 
-// before each test
 func (suite *PostgreSQLTestSuite) SetupSuite() {
 	// context for suite, with a timeout
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*30))
