@@ -142,10 +142,16 @@ func (suite *PostgreSQLTestSuite) TestHighLevelIntegrationTestPostgreSQL() {
 			result = append(result, acc)
 		}
 
-		if !reflect.DeepEqual(result, v.ExpectedValues) {
+		var got []any
+
+		for _, vv := range result {
+			got = append(got, vv)
+		}
+
+		if !reflect.DeepEqual(got, v.ExpectedValues) {
 			suite.T().Fatal(fmt.Errorf(
-				"received data is different than expected:\n received %v\n expected %v\n",
-				result,
+				"received data is different than expected:\n received %+v\n expected %+v\n",
+				got,
 				v.ExpectedValues,
 			))
 		}
