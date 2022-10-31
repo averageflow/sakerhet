@@ -11,7 +11,6 @@ require (
 	github.com/testcontainers/testcontainers-go v0.15.0
 	google.golang.org/api v0.93.0
 	google.golang.org/grpc v1.50.1
-	gotest.tools v2.2.0+incompatible
 )
 
 require (

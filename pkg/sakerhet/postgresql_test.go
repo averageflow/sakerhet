@@ -9,6 +9,7 @@ import (
 
 	abstractedcontainers "github.com/averageflow/sakerhet/pkg/abstracted_containers"
 	"github.com/averageflow/sakerhet/pkg/sakerhet"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/suite"
 )
@@ -58,22 +59,6 @@ func TestPostgreSQLTestSuite(t *testing.T) {
 }
 
 func (suite *PostgreSQLTestSuite) TestHighLevelIntegrationTestPostgreSQL() {
-	type PostgreSQLIntegrationTestSeed struct {
-		InsertQuery  string
-		InsertValues [][]any
-	}
-
-	type PostgreSQLIntegrationTestExpectation struct {
-		GetQuery       string
-		ExpectedValues []any
-	}
-
-	type PostgreSQLIntegrationTestSituation struct {
-		InitialSchema []string
-		Seeds         []PostgreSQLIntegrationTestSeed
-		Expects       []PostgreSQLIntegrationTestExpectation
-	}
-
 	type account struct {
 		userId    int
 		username  string
@@ -82,7 +67,7 @@ func (suite *PostgreSQLTestSuite) TestHighLevelIntegrationTestPostgreSQL() {
 		createdOn int
 	}
 
-	situation := PostgreSQLIntegrationTestSituation{
+	situation := sakerhet.PostgreSQLIntegrationTestSituation{
 		InitialSchema: []string{
 			`
 		CREATE TABLE accounts (
@@ -94,7 +79,7 @@ func (suite *PostgreSQLTestSuite) TestHighLevelIntegrationTestPostgreSQL() {
     );
 		`,
 		},
-		Seeds: []PostgreSQLIntegrationTestSeed{
+		Seeds: []sakerhet.PostgreSQLIntegrationTestSeed{
 			{
 				InsertQuery: `INSERT INTO accounts (username, email, age, created_on) VALUES ($1, $2, $3, $4);`,
 				InsertValues: [][]any{
@@ -102,7 +87,7 @@ func (suite *PostgreSQLTestSuite) TestHighLevelIntegrationTestPostgreSQL() {
 				},
 			},
 		},
-		Expects: []PostgreSQLIntegrationTestExpectation{
+		Expects: []sakerhet.PostgreSQLIntegrationTestExpectation{
 			{
 				GetQuery: `SELECT user_id, username, email, age, created_on FROM accounts;`,
 				ExpectedValues: []any{
@@ -112,55 +97,37 @@ func (suite *PostgreSQLTestSuite) TestHighLevelIntegrationTestPostgreSQL() {
 		},
 	}
 
-	if err := abstractedcontainers.InitPostgreSQLSchema(suite.TestContext, suite.DBPool, situation.InitialSchema); err != nil {
+	if err := suite.IntegrationTester.PostgreSQLIntegrationTester.InitSchema(suite.DBPool, situation.InitialSchema); err != nil {
 		suite.T().Fatal(err)
 	}
 
-	for _, v := range situation.Seeds {
-		if err := abstractedcontainers.InitPostgreSQLDataInTable(suite.TestContext, suite.DBPool, v.InsertQuery, v.InsertValues); err != nil {
-			suite.T().Fatal(err)
+	if err := suite.IntegrationTester.PostgreSQLIntegrationTester.SeedData(suite.DBPool, situation.Seeds); err != nil {
+		suite.T().Fatal(err)
+	}
+
+	rowHandler := func(rows pgx.Rows) (any, error) {
+		var acc account
+
+		if err := rows.Scan(&acc.userId, &acc.username, &acc.email, &acc.age, &acc.createdOn); err != nil {
+			return nil, err
 		}
+
+		return acc, nil
 	}
 
 	for _, v := range situation.Expects {
-		rows, err := suite.DBPool.Query(suite.TestContext, v.GetQuery)
+		got, err := suite.IntegrationTester.PostgreSQLIntegrationTester.FetchData(suite.DBPool, v.GetQuery, rowHandler)
 		if err != nil {
 			suite.T().Fatal(err)
 		}
 
-		defer rows.Close()
-
-		var result []account
-
-		for rows.Next() {
-			var acc account
-
-			if err := rows.Scan(&acc.userId, &acc.username, &acc.email, &acc.age, &acc.createdOn); err != nil {
-				suite.T().Fatal(err)
-			}
-
-			result = append(result, acc)
-		}
-
-		var got []any
-
-		for _, vv := range result {
-			got = append(got, vv)
-		}
-
-		if !reflect.DeepEqual(got, v.ExpectedValues) {
-			suite.T().Fatal(fmt.Errorf(
-				"received data is different than expected:\n received %+v\n expected %+v\n",
-				got,
-				v.ExpectedValues,
-			))
+		if err := suite.IntegrationTester.PostgreSQLIntegrationTester.CheckContainsExpectedData(got, v.ExpectedValues); err != nil {
+			suite.T().Fatal(err)
 		}
 	}
 }
 
 func TestLowLevelIntegrationTestPostgreSQL(t *testing.T) {
-	// t.Parallel()
-
 	// given
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*30))
 	defer cancel()

@@ -2,7 +2,7 @@ package abstractedcontainers
 
 import "fmt"
 
-func unorderedEqualByteArrays(first, second [][]byte) bool {
+func UnorderedEqualByteArrays(first, second [][]byte) bool {
 	var firstA []any
 	var secondA []any
 
@@ -14,10 +14,10 @@ func unorderedEqualByteArrays(first, second [][]byte) bool {
 		secondA = append(secondA, v)
 	}
 
-	return unorderedEqual(firstA, secondA)
+	return UnorderedEqual(firstA, secondA)
 }
 
-func unorderedEqual(first, second []any) bool {
+func UnorderedEqual(first, second []any) bool {
 	if len(first) != len(second) {
 		return false
 	}
