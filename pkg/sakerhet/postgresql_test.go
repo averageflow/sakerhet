@@ -19,6 +19,7 @@ type PostgreSQLTestSuite struct {
 	TestContextCancel   context.CancelFunc
 	PostgreSQLContainer *abstractedcontainers.PostgreSQLContainer
 	IntegrationTester   sakerhet.IntegrationTester
+	DBPool              *pgxpool.Pool
 }
 
 // before each test
@@ -38,9 +39,17 @@ func (suite *PostgreSQLTestSuite) SetupSuite() {
 	}
 
 	suite.PostgreSQLContainer = postgreSQLC
+
+	dbpool, err := pgxpool.New(suite.TestContext, suite.PostgreSQLContainer.PostgreSQLConnectionURL)
+	if err != nil {
+		suite.T().Fatal(fmt.Errorf("Unable to create connection pool: %v\n", err))
+	}
+
+	suite.DBPool = dbpool
 }
 
 func (suite *PostgreSQLTestSuite) TearDownSuite() {
+	suite.DBPool.Close()
 	_ = suite.PostgreSQLContainer.Terminate(suite.TestContext)
 }
 
@@ -49,40 +58,22 @@ func TestPostgreSQLTestSuite(t *testing.T) {
 }
 
 func (suite *PostgreSQLTestSuite) TestHighLevelIntegrationTestPostgreSQL() {
-	dbpool, err := pgxpool.New(suite.TestContext, suite.PostgreSQLContainer.PostgreSQLConnectionURL)
-	if err != nil {
-		suite.T().Fatal(fmt.Errorf("Unable to create connection pool: %v\n", err))
+	type PostgreSQLIntegrationTestSeed struct {
+		InsertQuery  string
+		InsertValues [][]any
 	}
 
-	defer dbpool.Close()
-
-	initialSchema := []string{
-		`
-		CREATE TABLE accounts (
-				user_id serial PRIMARY KEY,
-				username VARCHAR ( 50 ) UNIQUE NOT NULL,
-				email VARCHAR ( 255 ) UNIQUE NOT NULL,
-				age INTEGER NOT NULL,
-	      created_on INTEGER NOT NULL DEFAULT extract(epoch from now())
-    );
-		`,
+	type PostgreSQLIntegrationTestExpectation struct {
+		GetQuery       string
+		ExpectedValues []any
 	}
 
-	if err := abstractedcontainers.InitPostgreSQLSchema(suite.TestContext, dbpool, initialSchema); err != nil {
-		suite.T().Fatal(err)
+	type PostgreSQLIntegrationTestSituation struct {
+		InitialSchema []string
+		Seeds         []PostgreSQLIntegrationTestSeed
+		Expects       []PostgreSQLIntegrationTestExpectation
 	}
 
-	insertQuery := `INSERT INTO accounts (username, email, age, created_on) VALUES ($1, $2, $3, $4);`
-	seedData := [][]any{
-		{"myUser", "myEmail", 25, 1234567},
-	}
-
-	// when
-	if err := abstractedcontainers.InitPostgreSQLDataInTable(suite.TestContext, dbpool, insertQuery, seedData); err != nil {
-		suite.T().Fatal(err)
-	}
-
-	// then
 	type account struct {
 		userId    int
 		username  string
@@ -91,38 +82,73 @@ func (suite *PostgreSQLTestSuite) TestHighLevelIntegrationTestPostgreSQL() {
 		createdOn int
 	}
 
-	getQuery := `SELECT user_id, username, email, age, created_on FROM accounts;`
+	situation := PostgreSQLIntegrationTestSituation{
+		InitialSchema: []string{
+			`
+		CREATE TABLE accounts (
+				user_id serial PRIMARY KEY,
+				username VARCHAR ( 50 ) UNIQUE NOT NULL,
+				email VARCHAR ( 255 ) UNIQUE NOT NULL,
+				age INTEGER NOT NULL,
+	      created_on INTEGER NOT NULL DEFAULT extract(epoch from now())
+    );
+		`,
+		},
+		Seeds: []PostgreSQLIntegrationTestSeed{
+			{
+				InsertQuery: `INSERT INTO accounts (username, email, age, created_on) VALUES ($1, $2, $3, $4);`,
+				InsertValues: [][]any{
+					{"myUser", "myEmail", 25, 1234567},
+				},
+			},
+		},
+		Expects: []PostgreSQLIntegrationTestExpectation{
+			{
+				GetQuery: `SELECT user_id, username, email, age, created_on FROM accounts;`,
+				ExpectedValues: []any{
+					account{userId: 1, username: "myUser", email: "myEmail", age: 25, createdOn: 1234567},
+				},
+			},
+		},
+	}
 
-	rows, err := dbpool.Query(suite.TestContext, getQuery)
-	if err != nil {
+	if err := abstractedcontainers.InitPostgreSQLSchema(suite.TestContext, suite.DBPool, situation.InitialSchema); err != nil {
 		suite.T().Fatal(err)
 	}
 
-	defer rows.Close()
+	for _, v := range situation.Seeds {
+		if err := abstractedcontainers.InitPostgreSQLDataInTable(suite.TestContext, suite.DBPool, v.InsertQuery, v.InsertValues); err != nil {
+			suite.T().Fatal(err)
+		}
+	}
 
-	var result []account
-
-	for rows.Next() {
-		var acc account
-
-		if err := rows.Scan(&acc.userId, &acc.username, &acc.email, &acc.age, &acc.createdOn); err != nil {
+	for _, v := range situation.Expects {
+		rows, err := suite.DBPool.Query(suite.TestContext, v.GetQuery)
+		if err != nil {
 			suite.T().Fatal(err)
 		}
 
-		result = append(result, acc)
-	}
+		defer rows.Close()
 
-	// then
-	expected := []account{
-		{userId: 1, username: "myUser", email: "myEmail", age: 25, createdOn: 1234567},
-	}
+		var result []account
 
-	if !reflect.DeepEqual(result, expected) {
-		suite.T().Fatal(fmt.Errorf(
-			"received data is different than expected:\n received %v\n expected %v\n",
-			result,
-			expected,
-		))
+		for rows.Next() {
+			var acc account
+
+			if err := rows.Scan(&acc.userId, &acc.username, &acc.email, &acc.age, &acc.createdOn); err != nil {
+				suite.T().Fatal(err)
+			}
+
+			result = append(result, acc)
+		}
+
+		if !reflect.DeepEqual(result, v.ExpectedValues) {
+			suite.T().Fatal(fmt.Errorf(
+				"received data is different than expected:\n received %v\n expected %v\n",
+				result,
+				v.ExpectedValues,
+			))
+		}
 	}
 }
 
