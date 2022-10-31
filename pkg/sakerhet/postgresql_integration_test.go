@@ -1,3 +1,5 @@
+//go:build integration
+
 package sakerhet_test
 
 import (
