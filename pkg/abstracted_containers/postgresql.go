@@ -91,6 +91,23 @@ func InitPostgreSQLSchema(ctx context.Context, db *pgxpool.Pool, schema []string
 	return tx.Commit(ctx)
 }
 
+func TruncatePostgreSQLTable(ctx context.Context, db *pgxpool.Pool, tables []string) error {
+	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	if err != nil {
+		return err
+	}
+
+	if _, err := tx.Conn().Exec(ctx, fmt.Sprintf(`TRUNCATE TABLE %s;`, strings.Join(tables, ", "))); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
 func InitPostgreSQLDataInTable(ctx context.Context, db *pgxpool.Pool, query string, data [][]any) error {
 	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
 	defer func() {

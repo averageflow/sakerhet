@@ -34,9 +34,8 @@ type PostgreSQLIntegrationTestExpectation struct {
 }
 
 type PostgreSQLIntegrationTestSituation struct {
-	InitialSchema []string
-	Seeds         []PostgreSQLIntegrationTestSeed
-	Expects       []PostgreSQLIntegrationTestExpectation
+	Seeds   []PostgreSQLIntegrationTestSeed
+	Expects []PostgreSQLIntegrationTestExpectation
 }
 
 func NewPostgreSQLIntegrationTester(ctx context.Context, p *PostgreSQLIntegrationTestParams) *PostgreSQLIntegrationTester {
@@ -106,6 +105,10 @@ func (p *PostgreSQLIntegrationTester) CheckContainsExpectedData(resultSet []any,
 	}
 
 	return nil
+}
+
+func (p *PostgreSQLIntegrationTester) TruncateTable(dbPool *pgxpool.Pool, tables []string) error {
+	return abstractedcontainers.TruncatePostgreSQLTable(p.TestContext, dbPool, tables)
 }
 
 func (p *PostgreSQLIntegrationTester) FetchData(dbPool *pgxpool.Pool, query string, rowHandler func(rows pgx.Rows) (any, error)) ([]any, error) {

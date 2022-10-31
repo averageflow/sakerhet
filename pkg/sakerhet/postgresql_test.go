@@ -25,15 +25,18 @@ type PostgreSQLTestSuite struct {
 
 // before each test
 func (suite *PostgreSQLTestSuite) SetupSuite() {
+	// context for suite, with a timeout
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*30))
 	suite.TestContext = ctx
 	suite.TestContextCancel = cancel
 
+	// init Sakerhet convenience methods
 	suite.IntegrationTester = sakerhet.NewIntegrationTest(sakerhet.IntegrationTesterParams{
 		TestContext: ctx,
 		PostgreSQL:  &sakerhet.PostgreSQLIntegrationTestParams{},
 	})
 
+	// create PostgreSQL container
 	postgreSQLC, err := suite.IntegrationTester.PostgreSQLIntegrationTester.ContainerStart()
 	if err != nil {
 		suite.T().Fatal(err)
@@ -41,12 +44,36 @@ func (suite *PostgreSQLTestSuite) SetupSuite() {
 
 	suite.PostgreSQLContainer = postgreSQLC
 
+	// create DB pool that will be reused across tests
 	dbpool, err := pgxpool.New(suite.TestContext, suite.PostgreSQLContainer.PostgreSQLConnectionURL)
 	if err != nil {
 		suite.T().Fatal(fmt.Errorf("Unable to create connection pool: %v\n", err))
 	}
 
 	suite.DBPool = dbpool
+
+	// setup schema that will be reused across tests
+	initialSchema := []string{
+		`
+		CREATE TABLE accounts (
+				user_id serial PRIMARY KEY,
+				username VARCHAR ( 50 ) UNIQUE NOT NULL,
+				email VARCHAR ( 255 ) UNIQUE NOT NULL,
+				age INTEGER NOT NULL,
+	      created_on INTEGER NOT NULL DEFAULT extract(epoch from now())
+    );
+		`,
+	}
+
+	if err := suite.IntegrationTester.PostgreSQLIntegrationTester.InitSchema(suite.DBPool, initialSchema); err != nil {
+		suite.T().Fatal(err)
+	}
+}
+
+func (suite *PostgreSQLTestSuite) TearDownTest() {
+	if err := suite.IntegrationTester.PostgreSQLIntegrationTester.TruncateTable(suite.DBPool, []string{"accounts"}); err != nil {
+		suite.T().Fatal(err)
+	}
 }
 
 func (suite *PostgreSQLTestSuite) TearDownSuite() {
@@ -68,17 +95,6 @@ func (suite *PostgreSQLTestSuite) TestHighLevelIntegrationTestPostgreSQL() {
 	}
 
 	situation := sakerhet.PostgreSQLIntegrationTestSituation{
-		InitialSchema: []string{
-			`
-		CREATE TABLE accounts (
-				user_id serial PRIMARY KEY,
-				username VARCHAR ( 50 ) UNIQUE NOT NULL,
-				email VARCHAR ( 255 ) UNIQUE NOT NULL,
-				age INTEGER NOT NULL,
-	      created_on INTEGER NOT NULL DEFAULT extract(epoch from now())
-    );
-		`,
-		},
 		Seeds: []sakerhet.PostgreSQLIntegrationTestSeed{
 			{
 				InsertQuery: `INSERT INTO accounts (username, email, age, created_on) VALUES ($1, $2, $3, $4);`,
@@ -95,10 +111,6 @@ func (suite *PostgreSQLTestSuite) TestHighLevelIntegrationTestPostgreSQL() {
 				},
 			},
 		},
-	}
-
-	if err := suite.IntegrationTester.PostgreSQLIntegrationTester.InitSchema(suite.DBPool, situation.InitialSchema); err != nil {
-		suite.T().Fatal(err)
 	}
 
 	if err := suite.IntegrationTester.PostgreSQLIntegrationTester.SeedData(suite.DBPool, situation.Seeds); err != nil {
