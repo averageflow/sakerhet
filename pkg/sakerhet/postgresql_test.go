@@ -175,8 +175,6 @@ func TestLowLevelIntegrationTestPostgreSQL(t *testing.T) {
 		_ = postgreSQLC.Terminate(ctx)
 	}()
 
-	fmt.Printf("New container started, accessible at: %s\n", postgreSQLC.URI)
-
 	dbpool, err := pgxpool.New(ctx, postgreSQLC.PostgreSQLConnectionURL)
 	if err != nil {
 		t.Fatal(fmt.Errorf("Unable to create connection pool: %v\n", err))

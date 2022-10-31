@@ -61,7 +61,6 @@ func SetupPostgreSQL(ctx context.Context) (*PostgreSQLContainer, error) {
 		return nil, err
 	}
 
-	// postgres://user:secret@localhost:5432/mydatabasename
 	uri := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", postgreSQLUser, postgreSQLPassword, hostIP, mappedPort.Port(), postgreSQLDB)
 
 	return &PostgreSQLContainer{
@@ -76,7 +75,6 @@ func SetupPostgreSQL(ctx context.Context) (*PostgreSQLContainer, error) {
 func InitPostgreSQLSchema(ctx context.Context, db *pgxpool.Pool, schema []string) error {
 	query := strings.Join(schema, ";\n")
 
-	fmt.Printf("DB: %+v", db)
 	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
 	defer func() {
 		_ = tx.Rollback(ctx)

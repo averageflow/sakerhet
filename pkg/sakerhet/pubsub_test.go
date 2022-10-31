@@ -88,6 +88,7 @@ func (suite *GCPPubSubTestSuite) TestHighLevelIntegrationTestOfServiceThatUsesGC
 	// when
 	ponService := newMyPowerOfNService()
 	x := ponService.toPowerOfN(3, 3)
+	y := ponService.toPowerOfN(4, 2)
 
 	if err := suite.IntegrationTester.GCPPubSubIntegrationTester.PublishData(
 		[]byte(fmt.Sprintf(`{"computationResult": %.2f}`, x)),
@@ -95,8 +96,14 @@ func (suite *GCPPubSubTestSuite) TestHighLevelIntegrationTestOfServiceThatUsesGC
 		suite.T().Fatal(err)
 	}
 
+	if err := suite.IntegrationTester.GCPPubSubIntegrationTester.PublishData(
+		[]byte(fmt.Sprintf(`{"computationResult": %.2f}`, y)),
+	); err != nil {
+		suite.T().Fatal(err)
+	}
+
 	// then
-	expectedData := [][]byte{[]byte(`{"computationResult": 27.00}`)}
+	expectedData := [][]byte{[]byte(`{"computationResult": 27.00}`), []byte(`{"computationResult": 16.00}`)}
 	if err := suite.IntegrationTester.GCPPubSubIntegrationTester.ContainsWantedMessages(
 		1*time.Second,
 		expectedData,
@@ -130,8 +137,6 @@ func TestLowLevelIntegrationTestGCPPubSub(t *testing.T) {
 	defer func() {
 		_ = pubSubC.Terminate(ctx)
 	}()
-
-	fmt.Printf("New container started, accessible at: %s\n", pubSubC.URI)
 
 	conn, err := grpc.Dial(pubSubC.URI, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {

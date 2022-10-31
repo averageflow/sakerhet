@@ -3,7 +3,6 @@ package abstractedcontainers
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -116,6 +115,7 @@ func PublishToGCPTopic(ctx context.Context, client *pubsub.Client, topic *pubsub
 	})
 
 	wg.Add(1)
+
 	go func(res *pubsub.PublishResult) {
 		defer wg.Done()
 		// The Get method blocks until a server-generated ID or
@@ -127,6 +127,7 @@ func PublishToGCPTopic(ctx context.Context, client *pubsub.Client, topic *pubsub
 			atomic.AddUint64(&totalErrors, 1)
 			return
 		}
+
 		fmt.Printf("Published message %d; msg ID: %v\n", 1, id)
 	}(result)
 
@@ -135,6 +136,7 @@ func PublishToGCPTopic(ctx context.Context, client *pubsub.Client, topic *pubsub
 	if totalErrors > 0 {
 		return fmt.Errorf("%d messages did not publish successfully", totalErrors)
 	}
+
 	return nil
 }
 
@@ -148,7 +150,7 @@ func toReadableSliceOfByteSlices(raw [][]byte) []string {
 	return result
 }
 
-// Receive messages for 3 seconds, which simplifies testing.
+// Receive messages for a given duration, which simplifies testing.
 func CheckGCPMessageInSub(ctx context.Context, client *pubsub.Client, subscriptionID string, wantedData [][]byte, timeToWait time.Duration) error {
 	sub := client.Subscription(subscriptionID)
 
@@ -157,9 +159,15 @@ func CheckGCPMessageInSub(ctx context.Context, client *pubsub.Client, subscripti
 
 	var receivedData [][]byte
 
+	mu := &sync.Mutex{}
+
 	err := sub.Receive(ctx, func(_ context.Context, msg *pubsub.Message) {
 		fmt.Printf("Got message: %q\n", string(msg.Data))
+
+		mu.Lock()
 		receivedData = append(receivedData, msg.Data)
+		mu.Unlock()
+
 		msg.Ack()
 		// cancel()
 	})
@@ -167,9 +175,7 @@ func CheckGCPMessageInSub(ctx context.Context, client *pubsub.Client, subscripti
 		return fmt.Errorf("sub.Receive: %v", err)
 	}
 
-	fmt.Printf("Received %d messages\n", len(receivedData))
-
-	if !reflect.DeepEqual(wantedData, receivedData) {
+	if !unorderedEqualByteArrays(wantedData, receivedData) {
 		return fmt.Errorf(
 			"received data is different than expected:\n received %v\n expected %v\n",
 			toReadableSliceOfByteSlices(receivedData),

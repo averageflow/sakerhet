@@ -65,8 +65,6 @@ func (g *GCPPubSubIntegrationTester) ContainerStart() (*abstractedcontainers.GCP
 		return nil, err
 	}
 
-	fmt.Printf("GCP Pub/Sub container started, accessible at: %s\n", pubSubC.URI)
-
 	g.PubSubURI = pubSubC.URI
 
 	return pubSubC, nil
