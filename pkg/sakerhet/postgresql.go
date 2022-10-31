@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	abstractedcontainers "github.com/averageflow/sakerhet/pkg/abstracted_containers"
 	"github.com/google/uuid"
 )
 
@@ -52,4 +53,15 @@ func NewPostgreSQLIntegrationTester(ctx context.Context, p *PostgreSQLIntegratio
 
 func (p *PostgreSQLIntegrationTester) PrintSomet() {
 	fmt.Println(p.DB)
+}
+
+func (g *PostgreSQLIntegrationTester) ContainerStart() (*abstractedcontainers.PostgreSQLContainer, error) {
+	postgreSQLC, err := abstractedcontainers.SetupPostgreSQL(g.TestContext)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("GCP Pub/Sub container started, accessible at: %s\n", postgreSQLC.URI)
+
+	return postgreSQLC, nil
 }

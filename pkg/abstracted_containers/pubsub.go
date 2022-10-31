@@ -59,13 +59,12 @@ func SetupGCPPubsub(ctx context.Context, projectID string, topicSubscriptionMap 
 		},
 		// await until communication is possible on liveness probe port, then proceed
 		WaitingFor: wait.ForListeningPort(livenessProbePort),
-		Name:       "gcp-pubsub",
+		AutoRemove: true,
 	}
 
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          true,
-		Reuse:            true,
 	})
 	if err != nil {
 		return nil, err

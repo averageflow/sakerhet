@@ -13,7 +13,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-type postgreSQLContainer struct {
+type PostgreSQLContainer struct {
 	testcontainers.Container
 	URI                     string
 	PostgreSQLPort          nat.Port
@@ -21,7 +21,7 @@ type postgreSQLContainer struct {
 	PostgreSQLConnectionURL string
 }
 
-func SetupPostgreSQL(ctx context.Context) (*postgreSQLContainer, error) {
+func SetupPostgreSQL(ctx context.Context) (*PostgreSQLContainer, error) {
 	postgreSQLPort, err := nat.NewPort("tcp", "5432")
 	if err != nil {
 		return nil, err
@@ -40,13 +40,12 @@ func SetupPostgreSQL(ctx context.Context) (*postgreSQLContainer, error) {
 			"POSTGRES_USER":     postgreSQLUser,
 			"POSTGRES_DB":       postgreSQLDB,
 		},
-		Name: "postgresql",
+		AutoRemove: true,
 	}
 
 	postgreSQLC, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          true,
-		Reuse:            true,
 	})
 	if err != nil {
 		return nil, err
@@ -65,7 +64,7 @@ func SetupPostgreSQL(ctx context.Context) (*postgreSQLContainer, error) {
 	// postgres://user:secret@localhost:5432/mydatabasename
 	uri := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", postgreSQLUser, postgreSQLPassword, hostIP, mappedPort.Port(), postgreSQLDB)
 
-	return &postgreSQLContainer{
+	return &PostgreSQLContainer{
 		Container:               postgreSQLC,
 		URI:                     uri,
 		PostgreSQLPort:          postgreSQLPort,

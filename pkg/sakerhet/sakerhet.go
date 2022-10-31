@@ -2,19 +2,19 @@ package sakerhet
 
 import "context"
 
-type IntegrationTestParams struct {
+type IntegrationTesterParams struct {
 	TestContext context.Context
 	GCPPubSub   *GCPPubSubIntegrationTestParams
 	PostgreSQL  *PostgreSQLIntegrationTestParams
 }
 
-type IntegrationTest struct {
+type IntegrationTester struct {
 	GCPPubSubIntegrationTester  *GCPPubSubIntegrationTester
 	PostgreSQLIntegrationTester *PostgreSQLIntegrationTester
 }
 
-func NewIntegrationTest(userInput IntegrationTestParams) IntegrationTest {
-	var newTest IntegrationTest
+func NewIntegrationTest(userInput IntegrationTesterParams) IntegrationTester {
+	var newTest IntegrationTester
 
 	if userInput.GCPPubSub != nil {
 		newTest.GCPPubSubIntegrationTester = NewGCPPubSubIntegrationTester(userInput.TestContext, userInput.GCPPubSub)
