@@ -17,10 +17,9 @@ type PostgreSQLIntegrationTestParams struct {
 }
 
 type PostgreSQLIntegrationTester struct {
-	TestContext context.Context
-	User        string
-	Password    string
-	DB          string
+	User     string
+	Password string
+	DB       string
 }
 
 type PostgreSQLIntegrationTestSeed struct {
@@ -38,7 +37,7 @@ type PostgreSQLIntegrationTestSituation struct {
 	Expects []PostgreSQLIntegrationTestExpectation
 }
 
-func NewPostgreSQLIntegrationTester(ctx context.Context, p *PostgreSQLIntegrationTestParams) *PostgreSQLIntegrationTester {
+func NewPostgreSQLIntegrationTester(p *PostgreSQLIntegrationTestParams) *PostgreSQLIntegrationTester {
 	newTester := &PostgreSQLIntegrationTester{}
 
 	if p.Password == "" {
@@ -59,17 +58,11 @@ func NewPostgreSQLIntegrationTester(ctx context.Context, p *PostgreSQLIntegratio
 		newTester.DB = p.DB
 	}
 
-	if ctx == nil {
-		newTester.TestContext = context.TODO()
-	} else {
-		newTester.TestContext = ctx
-	}
-
 	return newTester
 }
 
-func (g *PostgreSQLIntegrationTester) ContainerStart() (*abstractedcontainers.PostgreSQLContainer, error) {
-	postgreSQLC, err := abstractedcontainers.SetupPostgreSQL(g.TestContext, g.User, g.Password, g.DB)
+func (g *PostgreSQLIntegrationTester) ContainerStart(ctx context.Context) (*abstractedcontainers.PostgreSQLContainer, error) {
+	postgreSQLC, err := abstractedcontainers.SetupPostgreSQL(ctx, g.User, g.Password, g.DB)
 	if err != nil {
 		return nil, err
 	}
@@ -77,17 +70,17 @@ func (g *PostgreSQLIntegrationTester) ContainerStart() (*abstractedcontainers.Po
 	return postgreSQLC, nil
 }
 
-func (g *PostgreSQLIntegrationTester) InitSchema(dbPool *pgxpool.Pool, initialSchema []string) error {
-	if err := abstractedcontainers.InitPostgreSQLSchema(g.TestContext, dbPool, initialSchema); err != nil {
+func (p *PostgreSQLIntegrationTester) InitSchema(ctx context.Context, dbPool *pgxpool.Pool, initialSchema []string) error {
+	if err := abstractedcontainers.InitPostgreSQLSchema(ctx, dbPool, initialSchema); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (p *PostgreSQLIntegrationTester) SeedData(dbPool *pgxpool.Pool, seeds []PostgreSQLIntegrationTestSeed) error {
+func (p *PostgreSQLIntegrationTester) SeedData(ctx context.Context, dbPool *pgxpool.Pool, seeds []PostgreSQLIntegrationTestSeed) error {
 	for _, v := range seeds {
-		if err := abstractedcontainers.SeedPostgreSQLData(p.TestContext, dbPool, v.InsertQuery, v.InsertValues); err != nil {
+		if err := abstractedcontainers.SeedPostgreSQLData(ctx, dbPool, v.InsertQuery, v.InsertValues); err != nil {
 			return err
 		}
 	}
@@ -107,12 +100,12 @@ func (p *PostgreSQLIntegrationTester) CheckContainsExpectedData(resultSet []any,
 	return nil
 }
 
-func (p *PostgreSQLIntegrationTester) TruncateTable(dbPool *pgxpool.Pool, tables []string) error {
-	return abstractedcontainers.TruncatePostgreSQLTable(p.TestContext, dbPool, tables)
+func (p *PostgreSQLIntegrationTester) TruncateTable(ctx context.Context, dbPool *pgxpool.Pool, tables []string) error {
+	return abstractedcontainers.TruncatePostgreSQLTable(ctx, dbPool, tables)
 }
 
-func (p *PostgreSQLIntegrationTester) FetchData(dbPool *pgxpool.Pool, query string, rowHandler func(rows pgx.Rows) (any, error)) ([]any, error) {
-	rows, err := dbPool.Query(p.TestContext, query)
+func (p *PostgreSQLIntegrationTester) FetchData(ctx context.Context, dbPool *pgxpool.Pool, query string, rowHandler func(rows pgx.Rows) (any, error)) ([]any, error) {
+	rows, err := dbPool.Query(ctx, query)
 	if err != nil {
 		return nil, err
 	}

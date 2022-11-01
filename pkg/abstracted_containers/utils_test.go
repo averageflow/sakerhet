@@ -1,15 +1,27 @@
-//go:build !integration
-
 package abstractedcontainers_test
 
 import (
+	"os"
 	"testing"
 
 	abstractedcontainers "github.com/averageflow/sakerhet/pkg/abstracted_containers"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 )
 
-func TestUnorderedEqual(t *testing.T) {
+type UnorderedEqualTestSuite struct {
+	suite.Suite
+}
+
+func TestUnorderedEqualTestSuite(t *testing.T) {
+	if os.Getenv("SAKERHET_RUN_INTEGRATION_TESTS") != "" {
+		t.Skip("Skipping unit tests! Unset variable SAKERHET_RUN_INTEGRATION_TESTS to run them!")
+	} else {
+		suite.Run(t, new(UnorderedEqualTestSuite))
+	}
+}
+
+func (suite *UnorderedEqualTestSuite) TestUnorderedEqual() {
 	type unorderedEqualTestCase struct {
 		left            []any
 		right           []any
@@ -26,11 +38,11 @@ func TestUnorderedEqual(t *testing.T) {
 
 	for _, v := range sut {
 		areEqual := abstractedcontainers.UnorderedEqual(v.left, v.right)
-		assert.Equal(t, v.expectToBeEqual, areEqual)
+		assert.Equal(suite.T(), v.expectToBeEqual, areEqual)
 	}
 }
 
-func TestUnorderedEqualByteArrays(t *testing.T) {
+func (suite *UnorderedEqualTestSuite) TestUnorderedEqualByteArrays() {
 	type unorderedEqualTestCase struct {
 		left            [][]byte
 		right           [][]byte
@@ -44,6 +56,6 @@ func TestUnorderedEqualByteArrays(t *testing.T) {
 
 	for _, v := range sut {
 		areEqual := abstractedcontainers.UnorderedEqualByteArrays(v.left, v.right)
-		assert.Equal(t, v.expectToBeEqual, areEqual)
+		assert.Equal(suite.T(), v.expectToBeEqual, areEqual)
 	}
 }

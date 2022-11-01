@@ -1,5 +1,3 @@
-//go:build integration
-
 package sakerhet_test
 
 // Basic imports
@@ -7,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -28,18 +28,15 @@ type GCPPubSubTestSuite struct {
 	IntegrationTester  sakerhet.IntegrationTester
 }
 
-// before each test
+// Before suite starts
 func (suite *GCPPubSubTestSuite) SetupSuite() {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*60))
-	suite.TestContext = ctx
-	suite.TestContextCancel = cancel
+	ctx := context.Background()
 
 	suite.IntegrationTester = sakerhet.NewIntegrationTest(sakerhet.IntegrationTesterParams{
-		TestContext: ctx,
-		GCPPubSub:   &sakerhet.GCPPubSubIntegrationTestParams{},
+		GCPPubSub: &sakerhet.GCPPubSubIntegrationTestParams{},
 	})
 
-	pubSubC, err := suite.IntegrationTester.GCPPubSubIntegrationTester.ContainerStart()
+	pubSubC, err := suite.IntegrationTester.GCPPubSubIntegrationTester.ContainerStart(ctx)
 	if err != nil {
 		suite.T().Fatal(err)
 	}
@@ -47,12 +44,32 @@ func (suite *GCPPubSubTestSuite) SetupSuite() {
 	suite.GCPPubSubContainer = pubSubC
 }
 
+// Before each test
+func (suite *GCPPubSubTestSuite) SetupTest() {
+	integrationTestTimeout := int64(60)
+
+	if givenTimeout := os.Getenv("SAKERHET_INTEGRATION_TEST_TIMEOUT"); givenTimeout != "" {
+		if x, err := strconv.ParseInt(givenTimeout, 10, 64); err == nil {
+			integrationTestTimeout = x
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(integrationTestTimeout)*time.Second)
+	suite.TestContext = ctx
+	suite.TestContextCancel = cancel
+}
+
+// After suite ends
 func (suite *GCPPubSubTestSuite) TearDownSuite() {
 	_ = suite.GCPPubSubContainer.Terminate(suite.TestContext)
 }
 
 func TestGCPPubSubTestSuite(t *testing.T) {
-	suite.Run(t, new(GCPPubSubTestSuite))
+	if os.Getenv("SAKERHET_RUN_INTEGRATION_TESTS") == "" {
+		t.Skip("Skipping integration tests! Set variable SAKERHET_RUN_INTEGRATION_TESTS to run them!")
+	} else {
+		suite.Run(t, new(GCPPubSubTestSuite))
+	}
 }
 
 // High level test on code that pushes to Pub/Sub
@@ -60,13 +77,14 @@ func (suite *GCPPubSubTestSuite) TestHighLevelIntegrationTestGCPPubSub() {
 	wantedData := []byte(`{"myKey": "myValue"}`)
 
 	// when
-	if err := suite.IntegrationTester.GCPPubSubIntegrationTester.PublishData(wantedData); err != nil {
+	if err := suite.IntegrationTester.GCPPubSubIntegrationTester.PublishData(suite.TestContext, wantedData); err != nil {
 		suite.T().Fatal(err)
 	}
 
 	// then
 	expectedData := [][]byte{[]byte(wantedData)}
 	if err := suite.IntegrationTester.GCPPubSubIntegrationTester.ContainsWantedMessages(
+		suite.TestContext,
 		1*time.Second,
 		expectedData,
 	); err != nil {
@@ -93,12 +111,14 @@ func (suite *GCPPubSubTestSuite) TestHighLevelIntegrationTestOfServiceThatUsesGC
 	y := ponService.toPowerOfN(4, 2)
 
 	if err := suite.IntegrationTester.GCPPubSubIntegrationTester.PublishData(
+		suite.TestContext,
 		[]byte(fmt.Sprintf(`{"computationResult": %.2f}`, x)),
 	); err != nil {
 		suite.T().Fatal(err)
 	}
 
 	if err := suite.IntegrationTester.GCPPubSubIntegrationTester.PublishData(
+		suite.TestContext,
 		[]byte(fmt.Sprintf(`{"computationResult": %.2f}`, y)),
 	); err != nil {
 		suite.T().Fatal(err)
@@ -107,6 +127,7 @@ func (suite *GCPPubSubTestSuite) TestHighLevelIntegrationTestOfServiceThatUsesGC
 	// then
 	expectedData := [][]byte{[]byte(`{"computationResult": 27.00}`), []byte(`{"computationResult": 16.00}`)}
 	if err := suite.IntegrationTester.GCPPubSubIntegrationTester.ContainsWantedMessages(
+		suite.TestContext,
 		1*time.Second,
 		expectedData,
 	); err != nil {
@@ -116,7 +137,9 @@ func (suite *GCPPubSubTestSuite) TestHighLevelIntegrationTestOfServiceThatUsesGC
 
 // Low level test with full control on testing code that pushes to Pub/Sub
 func TestLowLevelIntegrationTestGCPPubSub(t *testing.T) {
-	// t.Parallel()
+	if os.Getenv("SAKERHET_RUN_INTEGRATION_TESTS") == "" {
+		t.Skip()
+	}
 
 	// given
 	projectID := "test-project"

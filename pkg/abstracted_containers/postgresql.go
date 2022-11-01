@@ -3,6 +3,7 @@ package abstractedcontainers
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/docker/go-connections/nat"
@@ -110,6 +111,7 @@ func SeedPostgreSQLData(ctx context.Context, db *pgxpool.Pool, query string, dat
 	}()
 
 	if err != nil {
+		log.Println(err.Error())
 		return err
 	}
 

@@ -20,14 +20,13 @@ type GCPPubSubIntegrationTestParams struct {
 }
 
 type GCPPubSubIntegrationTester struct {
-	TestContext    context.Context
 	ProjectID      string
 	TopicID        string
 	SubscriptionID string
 	PubSubURI      string
 }
 
-func NewGCPPubSubIntegrationTester(ctx context.Context, g *GCPPubSubIntegrationTestParams) *GCPPubSubIntegrationTester {
+func NewGCPPubSubIntegrationTester(g *GCPPubSubIntegrationTestParams) *GCPPubSubIntegrationTester {
 	newTester := &GCPPubSubIntegrationTester{}
 
 	if g.ProjectID == "" {
@@ -48,19 +47,13 @@ func NewGCPPubSubIntegrationTester(ctx context.Context, g *GCPPubSubIntegrationT
 		newTester.SubscriptionID = g.SubscriptionID
 	}
 
-	if ctx == nil {
-		newTester.TestContext = context.TODO()
-	} else {
-		newTester.TestContext = ctx
-	}
-
 	return newTester
 }
 
-func (g *GCPPubSubIntegrationTester) ContainerStart() (*abstractedcontainers.GCPPubSubContainer, error) {
+func (g *GCPPubSubIntegrationTester) ContainerStart(ctx context.Context) (*abstractedcontainers.GCPPubSubContainer, error) {
 	topicToSubMap := map[string][]string{g.TopicID: {g.SubscriptionID}}
 
-	pubSubC, err := abstractedcontainers.SetupGCPPubsub(g.TestContext, g.ProjectID, topicToSubMap)
+	pubSubC, err := abstractedcontainers.SetupGCPPubsub(ctx, g.ProjectID, topicToSubMap)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +63,7 @@ func (g *GCPPubSubIntegrationTester) ContainerStart() (*abstractedcontainers.GCP
 	return pubSubC, nil
 }
 
-func (g *GCPPubSubIntegrationTester) CreateClient() (*pubsub.Client, error) {
+func (g *GCPPubSubIntegrationTester) CreateClient(ctx context.Context) (*pubsub.Client, error) {
 	conn, err := grpc.Dial(g.PubSubURI, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("grpc.Dial: %v", err)
@@ -81,7 +74,7 @@ func (g *GCPPubSubIntegrationTester) CreateClient() (*pubsub.Client, error) {
 		option.WithTelemetryDisabled(),
 	}
 
-	client, err := pubsub.NewClientWithConfig(g.TestContext, g.ProjectID, nil, o...)
+	client, err := pubsub.NewClientWithConfig(ctx, g.ProjectID, nil, o...)
 	if err != nil {
 		return nil, err
 	}
@@ -89,8 +82,8 @@ func (g *GCPPubSubIntegrationTester) CreateClient() (*pubsub.Client, error) {
 	return client, nil
 }
 
-func (g *GCPPubSubIntegrationTester) ContainsWantedMessages(timeToTimeout time.Duration, expectedData [][]byte) error {
-	client, err := g.CreateClient()
+func (g *GCPPubSubIntegrationTester) ContainsWantedMessages(ctx context.Context, timeToTimeout time.Duration, expectedData [][]byte) error {
+	client, err := g.CreateClient(ctx)
 	if err != nil {
 		return err
 	}
@@ -98,7 +91,7 @@ func (g *GCPPubSubIntegrationTester) ContainsWantedMessages(timeToTimeout time.D
 	defer client.Close()
 
 	if err := abstractedcontainers.AwaitGCPMessageInSub(
-		g.TestContext,
+		ctx,
 		client,
 		g.SubscriptionID,
 		expectedData,
@@ -110,20 +103,20 @@ func (g *GCPPubSubIntegrationTester) ContainsWantedMessages(timeToTimeout time.D
 	return nil
 }
 
-func (g *GCPPubSubIntegrationTester) PublishData(wantedData []byte) error {
-	client, err := g.CreateClient()
+func (g *GCPPubSubIntegrationTester) PublishData(ctx context.Context, wantedData []byte) error {
+	client, err := g.CreateClient(ctx)
 	if err != nil {
 		return err
 	}
 
 	defer client.Close()
 
-	topic, err := abstractedcontainers.GetOrCreateGCPTopic(g.TestContext, client, g.TopicID)
+	topic, err := abstractedcontainers.GetOrCreateGCPTopic(ctx, client, g.TopicID)
 	if err != nil {
 		return err
 	}
 
-	if err := abstractedcontainers.PublishToGCPTopic(g.TestContext, client, topic, wantedData); err != nil {
+	if err := abstractedcontainers.PublishToGCPTopic(ctx, client, topic, wantedData); err != nil {
 		return err
 	}
 

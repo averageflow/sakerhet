@@ -11,6 +11,9 @@ jobs:
       - run: make test
   run_integration_tests:
     runs-on: ubuntu-latest
+    env:
+      # integration tests in pipeline should be done within the 4 minutes
+      SAKERHET_INTEGRATION_TEST_TIMEOUT: 240
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3

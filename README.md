@@ -33,39 +33,16 @@ Of course, this is by no means an exhaustive list!
 
 Files containing unit test should be named as `*_test.go`.
 
-Unit test files should contain in the first lines of the file the following snippet, to avoid being run on integration test runs:
-
-```go
-//go:build !integration
-```
+Unit tests will not run if the special environment variable `SAKERHET_RUN_INTEGRATION_TESTS` is found.
 
 #### Integration tests
 
 Files containing integration tests should be named as `*_integration_test.go`.
 
-Integration test files should contain in the first lines of the file the following snippet, to avoid being run on normal test runs:
+Integration tests will be run if the special environment variable `SAKERHET_RUN_INTEGRATION_TESTS` is found.
 
-```go
-//go:build integration
-```
+Integration tests can then be run with `export SAKERHET_RUN_INTEGRATION_TESTS=Y; go test` or equivalent.
 
-Integration tests can then be run with `go test --tags=integration` or equivalent.
+This allows a clean separation of test runs. Take a look at the [Makefile](Makefile) in the root of the repo for examples.
 
-This allows a clean separation of test runs. Take a look at this example Makefile, or at the one in the root of the repo for examples:
-
-```Makefile
-#!/bin/sh
-
-coverage-to-html:
- go tool cover -html coverage.out -o coverage.html
-
-execute-test:
- go test -race -shuffle on -v -coverprofile coverage.out ./...
-
-execute-integration-test:
- go test -race -shuffle on -v -coverprofile coverage.out --tags=integration ./...
-
-test: execute-test coverage-to-html
-
-integration-test: execute-integration-test coverage-to-html
-```
+There is another special variable, `SAKERHET_INTEGRATION_TEST_TIMEOUT` which configures the timeout of each integration test in seconds.

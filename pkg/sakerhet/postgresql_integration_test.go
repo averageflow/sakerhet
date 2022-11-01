@@ -1,11 +1,12 @@
-//go:build integration
-
 package sakerhet_test
 
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -26,20 +27,16 @@ type PostgreSQLTestSuite struct {
 	DBPool              *pgxpool.Pool
 }
 
+// Before suite starts
 func (suite *PostgreSQLTestSuite) SetupSuite() {
-	// context for suite, with a timeout
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*60))
-	suite.TestContext = ctx
-	suite.TestContextCancel = cancel
+	ctx := context.Background()
 
-	// init Sakerhet convenience methods
 	suite.IntegrationTester = sakerhet.NewIntegrationTest(sakerhet.IntegrationTesterParams{
-		TestContext: ctx,
-		PostgreSQL:  &sakerhet.PostgreSQLIntegrationTestParams{},
+		PostgreSQL: &sakerhet.PostgreSQLIntegrationTestParams{},
 	})
 
 	// create PostgreSQL container
-	postgreSQLC, err := suite.IntegrationTester.PostgreSQLIntegrationTester.ContainerStart()
+	postgreSQLC, err := suite.IntegrationTester.PostgreSQLIntegrationTester.ContainerStart(ctx)
 	if err != nil {
 		suite.T().Fatal(err)
 	}
@@ -47,7 +44,7 @@ func (suite *PostgreSQLTestSuite) SetupSuite() {
 	suite.PostgreSQLContainer = postgreSQLC
 
 	// create DB pool that will be reused across tests
-	dbpool, err := pgxpool.New(suite.TestContext, suite.PostgreSQLContainer.PostgreSQLConnectionURL)
+	dbpool, err := pgxpool.New(ctx, suite.PostgreSQLContainer.PostgreSQLConnectionURL)
 	if err != nil {
 		suite.T().Fatal(fmt.Errorf("Unable to create connection pool: %v\n", err))
 	}
@@ -67,24 +64,46 @@ func (suite *PostgreSQLTestSuite) SetupSuite() {
 		`,
 	}
 
-	if err := suite.IntegrationTester.PostgreSQLIntegrationTester.InitSchema(suite.DBPool, initialSchema); err != nil {
+	if err := suite.IntegrationTester.PostgreSQLIntegrationTester.InitSchema(ctx, suite.DBPool, initialSchema); err != nil {
 		suite.T().Fatal(err)
 	}
 }
 
+// Before each test
+func (suite *PostgreSQLTestSuite) SetupTest() {
+	integrationTestTimeout := int64(60)
+
+	if givenTimeout := os.Getenv("SAKERHET_INTEGRATION_TEST_TIMEOUT"); givenTimeout != "" {
+		if x, err := strconv.ParseInt(givenTimeout, 10, 64); err == nil {
+			integrationTestTimeout = x
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(integrationTestTimeout)*time.Second)
+	suite.TestContext = ctx
+	suite.TestContextCancel = cancel
+}
+
+// After each test
 func (suite *PostgreSQLTestSuite) TearDownTest() {
-	if err := suite.IntegrationTester.PostgreSQLIntegrationTester.TruncateTable(suite.DBPool, []string{"accounts"}); err != nil {
+	ctx := context.Background()
+	if err := suite.IntegrationTester.PostgreSQLIntegrationTester.TruncateTable(ctx, suite.DBPool, []string{"accounts"}); err != nil {
 		suite.T().Fatal(err)
 	}
 }
 
+// After suite finishes
 func (suite *PostgreSQLTestSuite) TearDownSuite() {
 	suite.DBPool.Close()
 	_ = suite.PostgreSQLContainer.Terminate(suite.TestContext)
 }
 
 func TestPostgreSQLTestSuite(t *testing.T) {
-	suite.Run(t, new(PostgreSQLTestSuite))
+	if os.Getenv("SAKERHET_RUN_INTEGRATION_TESTS") == "" {
+		t.Skip("Skipping integration tests! Set variable SAKERHET_RUN_INTEGRATION_TESTS to run them!")
+	} else {
+		suite.Run(t, new(PostgreSQLTestSuite))
+	}
 }
 
 func (suite *PostgreSQLTestSuite) TestHighLevelIntegrationTestPostgreSQL() {
@@ -117,7 +136,10 @@ func (suite *PostgreSQLTestSuite) TestHighLevelIntegrationTestPostgreSQL() {
 		},
 	}
 
-	if err := suite.IntegrationTester.PostgreSQLIntegrationTester.SeedData(suite.DBPool, situation.Seeds); err != nil {
+	log.Printf("%+v", suite.DBPool)
+	log.Printf("%+v", suite.TestContext)
+
+	if err := suite.IntegrationTester.PostgreSQLIntegrationTester.SeedData(suite.TestContext, suite.DBPool, situation.Seeds); err != nil {
 		suite.T().Fatal(err)
 	}
 
@@ -132,7 +154,7 @@ func (suite *PostgreSQLTestSuite) TestHighLevelIntegrationTestPostgreSQL() {
 	}
 
 	for _, v := range situation.Expects {
-		got, err := suite.IntegrationTester.PostgreSQLIntegrationTester.FetchData(suite.DBPool, v.GetQuery, rowHandler)
+		got, err := suite.IntegrationTester.PostgreSQLIntegrationTester.FetchData(suite.TestContext, suite.DBPool, v.GetQuery, rowHandler)
 		if err != nil {
 			suite.T().Fatal(err)
 		}
@@ -144,6 +166,10 @@ func (suite *PostgreSQLTestSuite) TestHighLevelIntegrationTestPostgreSQL() {
 }
 
 func TestLowLevelIntegrationTestPostgreSQL(t *testing.T) {
+	if os.Getenv("SAKERHET_RUN_INTEGRATION_TESTS") == "" {
+		t.Skip()
+	}
+
 	// given
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*60))
 	defer cancel()
