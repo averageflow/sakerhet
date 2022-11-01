@@ -30,7 +30,7 @@ type GCPPubSubTestSuite struct {
 
 // before each test
 func (suite *GCPPubSubTestSuite) SetupSuite() {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*30))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*60))
 	suite.TestContext = ctx
 	suite.TestContextCancel = cancel
 
@@ -123,7 +123,7 @@ func TestLowLevelIntegrationTestGCPPubSub(t *testing.T) {
 	topicID := "test-topic-" + uuid.New().String()
 	subscriptionID := "test-sub-" + uuid.New().String()
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*30))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*60))
 	defer cancel()
 
 	topicSubscriptionMap := map[string][]string{

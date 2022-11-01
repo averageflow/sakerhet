@@ -28,7 +28,7 @@ type PostgreSQLTestSuite struct {
 
 func (suite *PostgreSQLTestSuite) SetupSuite() {
 	// context for suite, with a timeout
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*30))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*60))
 	suite.TestContext = ctx
 	suite.TestContextCancel = cancel
 
@@ -145,7 +145,7 @@ func (suite *PostgreSQLTestSuite) TestHighLevelIntegrationTestPostgreSQL() {
 
 func TestLowLevelIntegrationTestPostgreSQL(t *testing.T) {
 	// given
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*30))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*60))
 	defer cancel()
 
 	password := fmt.Sprintf("password-%s", uuid.NewString())
