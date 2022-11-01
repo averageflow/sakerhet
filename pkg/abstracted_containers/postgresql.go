@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/docker/go-connections/nat"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/testcontainers/testcontainers-go"
@@ -21,24 +20,20 @@ type PostgreSQLContainer struct {
 	PostgreSQLConnectionURL string
 }
 
-func SetupPostgreSQL(ctx context.Context) (*PostgreSQLContainer, error) {
+func SetupPostgreSQL(ctx context.Context, user, pass, db string) (*PostgreSQLContainer, error) {
 	postgreSQLPort, err := nat.NewPort("tcp", "5432")
 	if err != nil {
 		return nil, err
 	}
-
-	postgreSQLPassword := fmt.Sprintf("password-%s", uuid.NewString())
-	postgreSQLUser := fmt.Sprintf("user-%s", uuid.NewString())
-	postgreSQLDB := fmt.Sprintf("db-%s", uuid.NewString())
 
 	req := testcontainers.ContainerRequest{
 		Image:        "postgres:14.5",
 		ExposedPorts: []string{fmt.Sprintf("%s/%s", postgreSQLPort.Port(), postgreSQLPort.Proto())},
 		WaitingFor:   wait.ForListeningPort(postgreSQLPort),
 		Env: map[string]string{
-			"POSTGRES_PASSWORD": postgreSQLPassword,
-			"POSTGRES_USER":     postgreSQLUser,
-			"POSTGRES_DB":       postgreSQLDB,
+			"POSTGRES_PASSWORD": pass,
+			"POSTGRES_USER":     user,
+			"POSTGRES_DB":       db,
 		},
 		AutoRemove: true,
 	}
@@ -61,13 +56,13 @@ func SetupPostgreSQL(ctx context.Context) (*PostgreSQLContainer, error) {
 		return nil, err
 	}
 
-	uri := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", postgreSQLUser, postgreSQLPassword, hostIP, mappedPort.Port(), postgreSQLDB)
+	uri := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", user, pass, hostIP, mappedPort.Port(), db)
 
 	return &PostgreSQLContainer{
 		Container:               postgreSQLC,
 		URI:                     uri,
 		PostgreSQLPort:          postgreSQLPort,
-		PostgreSQLDB:            postgreSQLDB,
+		PostgreSQLDB:            db,
 		PostgreSQLConnectionURL: uri,
 	}, nil
 }
@@ -108,7 +103,7 @@ func TruncatePostgreSQLTable(ctx context.Context, db *pgxpool.Pool, tables []str
 	return tx.Commit(ctx)
 }
 
-func InitPostgreSQLDataInTable(ctx context.Context, db *pgxpool.Pool, query string, data [][]any) error {
+func SeedPostgreSQLData(ctx context.Context, db *pgxpool.Pool, query string, data [][]any) error {
 	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
 	defer func() {
 		_ = tx.Rollback(ctx)
@@ -126,10 +121,3 @@ func InitPostgreSQLDataInTable(ctx context.Context, db *pgxpool.Pool, query stri
 
 	return tx.Commit(ctx)
 }
-
-// func truncatePostgreSQL(ctx context.Context, db sql.DB) error {
-// 	const query = `TRUNCATE projectmanagement.task`
-//
-// 	_, err := db.ExecContext(ctx, query)
-// 	return err
-// }

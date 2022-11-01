@@ -171,7 +171,7 @@ func TestLowLevelIntegrationTestGCPPubSub(t *testing.T) {
 
 	// then
 	expectedData := [][]byte{[]byte(wantedData)}
-	if err := abstractedcontainers.CheckGCPMessageInSub(ctx, client, subscriptionID, expectedData, 1*time.Second); err != nil {
+	if err := abstractedcontainers.AwaitGCPMessageInSub(ctx, client, subscriptionID, expectedData, 1*time.Second); err != nil {
 		t.Fatal(err)
 	}
 }

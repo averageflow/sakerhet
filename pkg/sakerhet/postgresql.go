@@ -69,7 +69,7 @@ func NewPostgreSQLIntegrationTester(ctx context.Context, p *PostgreSQLIntegratio
 }
 
 func (g *PostgreSQLIntegrationTester) ContainerStart() (*abstractedcontainers.PostgreSQLContainer, error) {
-	postgreSQLC, err := abstractedcontainers.SetupPostgreSQL(g.TestContext)
+	postgreSQLC, err := abstractedcontainers.SetupPostgreSQL(g.TestContext, g.User, g.Password, g.DB)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (g *PostgreSQLIntegrationTester) InitSchema(dbPool *pgxpool.Pool, initialSc
 
 func (p *PostgreSQLIntegrationTester) SeedData(dbPool *pgxpool.Pool, seeds []PostgreSQLIntegrationTestSeed) error {
 	for _, v := range seeds {
-		if err := abstractedcontainers.InitPostgreSQLDataInTable(p.TestContext, dbPool, v.InsertQuery, v.InsertValues); err != nil {
+		if err := abstractedcontainers.SeedPostgreSQLData(p.TestContext, dbPool, v.InsertQuery, v.InsertValues); err != nil {
 			return err
 		}
 	}

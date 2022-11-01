@@ -97,7 +97,7 @@ func (g *GCPPubSubIntegrationTester) ContainsWantedMessages(timeToTimeout time.D
 
 	defer client.Close()
 
-	if err := abstractedcontainers.CheckGCPMessageInSub(
+	if err := abstractedcontainers.AwaitGCPMessageInSub(
 		g.TestContext,
 		client,
 		g.SubscriptionID,

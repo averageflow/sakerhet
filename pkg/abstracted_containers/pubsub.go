@@ -106,12 +106,12 @@ func GetOrCreateGCPTopic(ctx context.Context, client *pubsub.Client, topicID str
 	return topic, nil
 }
 
-func PublishToGCPTopic(ctx context.Context, client *pubsub.Client, topic *pubsub.Topic, wantedData []byte) error {
+func PublishToGCPTopic(ctx context.Context, client *pubsub.Client, topic *pubsub.Topic, payload []byte) error {
 	var wg sync.WaitGroup
 	var totalErrors uint64
 
 	result := topic.Publish(ctx, &pubsub.Message{
-		Data: wantedData,
+		Data: payload,
 	})
 
 	wg.Add(1)
@@ -140,7 +140,7 @@ func PublishToGCPTopic(ctx context.Context, client *pubsub.Client, topic *pubsub
 	return nil
 }
 
-func toReadableSliceOfByteSlices(raw [][]byte) []string {
+func toReadableSliceOfStrings(raw [][]byte) []string {
 	result := make([]string, len(raw))
 
 	for i := range raw {
@@ -151,7 +151,7 @@ func toReadableSliceOfByteSlices(raw [][]byte) []string {
 }
 
 // Receive messages for a given duration, which simplifies testing.
-func CheckGCPMessageInSub(ctx context.Context, client *pubsub.Client, subscriptionID string, wantedData [][]byte, timeToWait time.Duration) error {
+func AwaitGCPMessageInSub(ctx context.Context, client *pubsub.Client, subscriptionID string, expectedData [][]byte, timeToWait time.Duration) error {
 	sub := client.Subscription(subscriptionID)
 
 	ctx, cancel := context.WithTimeout(ctx, timeToWait)
@@ -175,11 +175,11 @@ func CheckGCPMessageInSub(ctx context.Context, client *pubsub.Client, subscripti
 		return fmt.Errorf("sub.Receive: %v", err)
 	}
 
-	if !UnorderedEqualByteArrays(wantedData, receivedData) {
+	if !UnorderedEqualByteArrays(expectedData, receivedData) {
 		return fmt.Errorf(
 			"received data is different than expected:\n received %v\n expected %v\n",
-			toReadableSliceOfByteSlices(receivedData),
-			toReadableSliceOfByteSlices(wantedData),
+			toReadableSliceOfStrings(receivedData),
+			toReadableSliceOfStrings(expectedData),
 		)
 	}
 

@@ -11,6 +11,7 @@ import (
 
 	abstractedcontainers "github.com/averageflow/sakerhet/pkg/abstracted_containers"
 	"github.com/averageflow/sakerhet/pkg/sakerhet"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/suite"
@@ -147,7 +148,11 @@ func TestLowLevelIntegrationTestPostgreSQL(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*30))
 	defer cancel()
 
-	postgreSQLC, err := abstractedcontainers.SetupPostgreSQL(ctx)
+	password := fmt.Sprintf("password-%s", uuid.NewString())
+	user := fmt.Sprintf("user-%s", uuid.NewString())
+	db := fmt.Sprintf("db-%s", uuid.NewString())
+
+	postgreSQLC, err := abstractedcontainers.SetupPostgreSQL(ctx, user, password, db)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +191,7 @@ func TestLowLevelIntegrationTestPostgreSQL(t *testing.T) {
 	}
 
 	// when
-	if err := abstractedcontainers.InitPostgreSQLDataInTable(ctx, dbpool, insertQuery, seedData); err != nil {
+	if err := abstractedcontainers.SeedPostgreSQLData(ctx, dbpool, insertQuery, seedData); err != nil {
 		t.Fatal(err)
 	}
 
