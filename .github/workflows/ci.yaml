@@ -13,7 +13,10 @@
 #       url."https://gis-bot:${TOKEN}@github.com/ingka-group-digital".insteadOf \
 #       "https://github.com/ingka-group-digital"
 #
-on: ["push", "pull_request"]
+on:
+  pull_request:
+  push:
+    branches: ["main"]
 env:
   GOLANG_VERSION: "1.19"
   GOLANG_CI_LINT_VERSION: "v1.50"
