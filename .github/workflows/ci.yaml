@@ -17,6 +17,7 @@ on: [push, pull_request]
 env:
   GOLANG_VERSION: 1.19
   GOLANG_CI_LINT_VERSION: "v1.50"
+  GOLANG_CACHE_DEPENDENCIES: true
 jobs:
   run_unit_tests:
     runs-on: ubuntu-latest
