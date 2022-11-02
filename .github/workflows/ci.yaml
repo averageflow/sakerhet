@@ -13,50 +13,76 @@
 #       url."https://gis-bot:${TOKEN}@github.com/ingka-group-digital".insteadOf \
 #       "https://github.com/ingka-group-digital"
 #
-on: [push, pull_request]
+on:
+  pull_request:
+  push:
+    branches: ["main"]
 env:
-  GOLANG_VERSION: 1.19
+  GOLANG_VERSION: "1.19"
   GOLANG_CI_LINT_VERSION: "v1.50"
   GOLANG_CACHE_DEPENDENCIES: true
 jobs:
+  # run unit tests
   run_unit_tests:
-    runs-on: ubuntu-latest
+    permissions:
+      contents: "read"
+    runs-on: "ubuntu-latest"
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
+      - name: "Checkout code"
+        uses: "actions/checkout@v3"
+      - name: "Setup Go ${{ env.GOLANG_VERSION }}"
+        uses: "actions/setup-go@v3"
         with:
-          go-version: ${{ env.GOLANG_VERSION }}
-          cache: ${{ env.GOLANG_CACHE_DEPENDENCIES }}
-      - run: make test
-      - name: Upload Go test results
-        uses: actions/upload-artifact@v3
+          go-version: "${{ env.GOLANG_VERSION }}"
+          cache: "${{ env.GOLANG_CACHE_DEPENDENCIES }}"
+      - name: "Run unit tests"
+        run: |
+          make test
+      - name: "Upload unit test results"
+        uses: "actions/upload-artifact@v3"
         with:
-          name: unit-test-coverage-report-${{ github.sha }}
-          path: coverage.html
+          name: "unit-test-coverage-report-${{ github.sha }}"
+          path: "coverage.html"
+  # run integration tests
   run_integration_tests:
-    runs-on: ubuntu-latest
+    permissions:
+      contents: "read"
+    runs-on: "ubuntu-latest"
+    timeout-minutes: 15
     env:
       # each integration test in pipeline should be done within 1 minute
       SAKERHET_INTEGRATION_TEST_TIMEOUT: 60
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
+      - name: "Checkout code"
+        uses: "actions/checkout@v3"
+      - name: "Setup Go ${{ env.GOLANG_VERSION }}"
+        uses: "actions/setup-go@v3"
         with:
-          go-version: ${{ env.GOLANG_VERSION }}
-          cache: ${{ env.GOLANG_CACHE_DEPENDENCIES }}
-      - run: make integration-test
-      - name: Upload Go test results
-        uses: actions/upload-artifact@v3
+          go-version: "${{ env.GOLANG_VERSION }}"
+          cache: "${{ env.GOLANG_CACHE_DEPENDENCIES }}"
+      - name: "Run integration tests"
+        run: |
+          make integration-test
+      - name: "Upload integration test results"
+        uses: "actions/upload-artifact@v3"
         with:
-          name: integration-test-coverage-report-${{ github.sha }}
-          path: coverage.html
+          name: "integration-test-coverage-report-${{ github.sha }}"
+          path: "coverage.html"
+  # run codebase lint
   run_linter:
-    runs-on: ubuntu-latest
+    permissions:
+      contents: "read"
+    runs-on: "ubuntu-latest"
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
+      - name: "Checkout code"
+        uses: "actions/checkout@v3"
+      - name: "Setup Go ${{ env.GOLANG_VERSION }}"
+        uses: "actions/setup-go@v3"
         with:
-          go-version: ${{ env.GOLANG_VERSION }}
-      - uses: golangci/golangci-lint-action@v3
+          go-version: "${{ env.GOLANG_VERSION }}"
+      - name: "Run golang-ci-lint"
+        uses: "golangci/golangci-lint-action@v3"
         with:
-          version: ${{ env.GOLANG_CI_LINT_VERSION }}
+          version: "${{ env.GOLANG_CI_LINT_VERSION }}"
