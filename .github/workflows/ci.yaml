@@ -1,0 +1,62 @@
+# Run CI processes to ensure continuous quality and safety
+#
+# This workflow performs several checks in parallel:
+#   - run unit tests
+#   - run integration tests
+#   - run linting of the project
+#
+on: [push, pull_request]
+env:
+  GOLANG_VERSION: 1.19
+  GOLANG_CI_LINT_VERSION: "v1.50"
+jobs:
+  run_unit_tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GOLANG_VERSION }}
+      # - name: Configure Git for Go private modules
+      #   env:
+      #     TOKEN: ${{ secrets.GIS_BOT_TOKEN }}
+      #   run: |
+      #     git config --global \
+      #       url."https://gis-bot:${TOKEN}@github.com/ingka-group-digital".insteadOf \
+      #       "https://github.com/ingka-group-digital"
+      - run: make test
+  run_integration_tests:
+    runs-on: ubuntu-latest
+    env:
+      # each integration test in pipeline should be done within the 2 minutes
+      SAKERHET_INTEGRATION_TEST_TIMEOUT: 120
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GOLANG_VERSION }}
+      # - name: Configure Git for Go private modules
+      #   env:
+      #     TOKEN: ${{ secrets.GIS_BOT_TOKEN }}
+      #   run: |
+      #     git config --global \
+      #       url."https://gis-bot:${TOKEN}@github.com/ingka-group-digital".insteadOf \
+      #       "https://github.com/ingka-group-digital"
+      - run: make integration-test
+  run_linter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GOLANG_VERSION }}
+      # - name: Configure Git for Go private modules
+      #   env:
+      #     TOKEN: ${{ secrets.GIS_BOT_TOKEN }}
+      #   run: |
+      #     git config --global \
+      #       url."https://gis-bot:${TOKEN}@github.com/ingka-group-digital".insteadOf \
+      #       "https://github.com/ingka-group-digital"
+      - uses: golangci/golangci-lint-action@v3
+        with:
+          version: ${{ env.GOLANG_CI_LINT_VERSION }}
