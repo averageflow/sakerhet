@@ -65,11 +65,8 @@ func (suite *GCPPubSubTestSuite) TearDownSuite() {
 }
 
 func TestGCPPubSubTestSuite(t *testing.T) {
-	if os.Getenv("SAKERHET_RUN_INTEGRATION_TESTS") == "" {
-		t.Skip("Skipping integration tests! Set variable SAKERHET_RUN_INTEGRATION_TESTS to run them!")
-	} else {
-		suite.Run(t, new(GCPPubSubTestSuite))
-	}
+	sakerhet.SkipIntegrationTestsWhenUnitTesting(t)
+	suite.Run(t, new(GCPPubSubTestSuite))
 }
 
 // High level test on code that pushes to Pub/Sub
@@ -137,9 +134,7 @@ func (suite *GCPPubSubTestSuite) TestHighLevelIntegrationTestOfServiceThatUsesGC
 
 // Low level test with full control on testing code that pushes to Pub/Sub
 func TestLowLevelIntegrationTestGCPPubSub(t *testing.T) {
-	if os.Getenv("SAKERHET_RUN_INTEGRATION_TESTS") == "" {
-		t.Skip()
-	}
+	sakerhet.SkipIntegrationTestsWhenUnitTesting(t)
 
 	// given
 	projectID := "test-project"
@@ -180,7 +175,7 @@ func TestLowLevelIntegrationTestGCPPubSub(t *testing.T) {
 
 	defer client.Close()
 
-	topic, err := abstractedcontainers.GetOrCreateGCPTopic(ctx, client, topicID)
+	topic, err := sakerhet.GetOrCreateGCPTopic(ctx, client, topicID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,13 +183,13 @@ func TestLowLevelIntegrationTestGCPPubSub(t *testing.T) {
 	// when
 	wantedData := []byte(`{"myKey": "myValue"}`)
 
-	if err := abstractedcontainers.PublishToGCPTopic(ctx, client, topic, wantedData); err != nil {
+	if err := sakerhet.PublishToGCPTopic(ctx, client, topic, wantedData); err != nil {
 		t.Fatal(err)
 	}
 
 	// then
 	expectedData := [][]byte{[]byte(wantedData)}
-	if err := abstractedcontainers.AwaitGCPMessageInSub(ctx, client, subscriptionID, expectedData, 1*time.Second); err != nil {
+	if err := sakerhet.AwaitGCPMessageInSub(ctx, client, subscriptionID, expectedData, 1*time.Second); err != nil {
 		t.Fatal(err)
 	}
 }

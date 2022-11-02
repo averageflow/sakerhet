@@ -3,6 +3,7 @@ package sakerhet
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	abstractedcontainers "github.com/averageflow/sakerhet/pkg/abstracted_containers"
 	"github.com/google/uuid"
@@ -71,7 +72,7 @@ func (g *PostgreSQLIntegrationTester) ContainerStart(ctx context.Context) (*abst
 }
 
 func (p *PostgreSQLIntegrationTester) InitSchema(ctx context.Context, dbPool *pgxpool.Pool, initialSchema []string) error {
-	if err := abstractedcontainers.InitPostgreSQLSchema(ctx, dbPool, initialSchema); err != nil {
+	if err := InitPostgreSQLSchema(ctx, dbPool, initialSchema); err != nil {
 		return err
 	}
 
@@ -80,7 +81,7 @@ func (p *PostgreSQLIntegrationTester) InitSchema(ctx context.Context, dbPool *pg
 
 func (p *PostgreSQLIntegrationTester) SeedData(ctx context.Context, dbPool *pgxpool.Pool, seeds []PostgreSQLIntegrationTestSeed) error {
 	for _, v := range seeds {
-		if err := abstractedcontainers.SeedPostgreSQLData(ctx, dbPool, v.InsertQuery, v.InsertValues); err != nil {
+		if err := SeedPostgreSQLData(ctx, dbPool, v.InsertQuery, v.InsertValues); err != nil {
 			return err
 		}
 	}
@@ -89,7 +90,7 @@ func (p *PostgreSQLIntegrationTester) SeedData(ctx context.Context, dbPool *pgxp
 }
 
 func (p *PostgreSQLIntegrationTester) CheckContainsExpectedData(resultSet []any, expected []any) error {
-	if !abstractedcontainers.UnorderedEqual(resultSet, expected) {
+	if !UnorderedEqual(resultSet, expected) {
 		return fmt.Errorf(
 			"received data is different than expected:\n received %+v\n expected %+v\n",
 			resultSet,
@@ -101,7 +102,7 @@ func (p *PostgreSQLIntegrationTester) CheckContainsExpectedData(resultSet []any,
 }
 
 func (p *PostgreSQLIntegrationTester) TruncateTable(ctx context.Context, dbPool *pgxpool.Pool, tables []string) error {
-	return abstractedcontainers.TruncatePostgreSQLTable(ctx, dbPool, tables)
+	return TruncatePostgreSQLTable(ctx, dbPool, tables)
 }
 
 func (p *PostgreSQLIntegrationTester) FetchData(ctx context.Context, dbPool *pgxpool.Pool, query string, rowHandler func(rows pgx.Rows) (any, error)) ([]any, error) {
@@ -124,4 +125,59 @@ func (p *PostgreSQLIntegrationTester) FetchData(ctx context.Context, dbPool *pgx
 	}
 
 	return result, nil
+}
+
+func InitPostgreSQLSchema(ctx context.Context, db *pgxpool.Pool, schema []string) error {
+	query := strings.Join(schema, ";\n")
+
+	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	if err != nil {
+		return err
+	}
+
+	if _, err := tx.Conn().Exec(ctx, query); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+func TruncatePostgreSQLTable(ctx context.Context, db *pgxpool.Pool, tables []string) error {
+	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	if err != nil {
+		return err
+	}
+
+	if _, err := tx.Conn().Exec(ctx, fmt.Sprintf(`TRUNCATE TABLE %s;`, strings.Join(tables, ", "))); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+func SeedPostgreSQLData(ctx context.Context, db *pgxpool.Pool, query string, data [][]any) error {
+	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	if err != nil {
+		return err
+	}
+
+	for _, v := range data {
+		if _, err := tx.Conn().Exec(ctx, query, v...); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
 }

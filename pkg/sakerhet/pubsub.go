@@ -3,6 +3,8 @@ package sakerhet
 import (
 	"context"
 	"fmt"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"cloud.google.com/go/pubsub"
@@ -90,7 +92,7 @@ func (g *GCPPubSubIntegrationTester) ContainsWantedMessages(ctx context.Context,
 
 	defer client.Close()
 
-	if err := abstractedcontainers.AwaitGCPMessageInSub(
+	if err := AwaitGCPMessageInSub(
 		ctx,
 		client,
 		g.SubscriptionID,
@@ -111,13 +113,104 @@ func (g *GCPPubSubIntegrationTester) PublishData(ctx context.Context, wantedData
 
 	defer client.Close()
 
-	topic, err := abstractedcontainers.GetOrCreateGCPTopic(ctx, client, g.TopicID)
+	topic, err := GetOrCreateGCPTopic(ctx, client, g.TopicID)
 	if err != nil {
 		return err
 	}
 
-	if err := abstractedcontainers.PublishToGCPTopic(ctx, client, topic, wantedData); err != nil {
+	if err := PublishToGCPTopic(ctx, client, topic, wantedData); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func toReadableSliceOfStrings(raw [][]byte) []string {
+	result := make([]string, len(raw))
+
+	for i := range raw {
+		result[i] = string(raw[i])
+	}
+
+	return result
+}
+
+// Receive messages for a given duration, which simplifies testing.
+func AwaitGCPMessageInSub(ctx context.Context, client *pubsub.Client, subscriptionID string, expectedData [][]byte, timeToWait time.Duration) error {
+	sub := client.Subscription(subscriptionID)
+
+	ctx, cancel := context.WithTimeout(ctx, timeToWait)
+	defer cancel()
+
+	var receivedData [][]byte
+
+	mu := &sync.Mutex{}
+
+	err := sub.Receive(ctx, func(_ context.Context, msg *pubsub.Message) {
+		mu.Lock()
+		receivedData = append(receivedData, msg.Data)
+		mu.Unlock()
+
+		msg.Ack()
+	})
+	if err != nil {
+		return fmt.Errorf("sub.Receive: %v", err)
+	}
+
+	if !UnorderedEqualByteArrays(expectedData, receivedData) {
+		return fmt.Errorf(
+			"received data is different than expected:\n received %v\n expected %v\n",
+			toReadableSliceOfStrings(receivedData),
+			toReadableSliceOfStrings(expectedData),
+		)
+	}
+
+	return nil
+}
+
+func GetOrCreateGCPTopic(ctx context.Context, client *pubsub.Client, topicID string) (*pubsub.Topic, error) {
+	topic := client.Topic(topicID)
+
+	ok, err := topic.Exists(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if !ok {
+		if _, err = client.CreateTopic(ctx, topicID); err != nil {
+			return nil, err
+		}
+	}
+
+	return topic, nil
+}
+
+func PublishToGCPTopic(ctx context.Context, client *pubsub.Client, topic *pubsub.Topic, payload []byte) error {
+	var wg sync.WaitGroup
+	var totalErrors uint64
+
+	result := topic.Publish(ctx, &pubsub.Message{
+		Data: payload,
+	})
+
+	wg.Add(1)
+
+	go func(res *pubsub.PublishResult) {
+		defer wg.Done()
+		// The Get method blocks until a server-generated ID or
+		// an error is returned for the published message.
+		_, err := res.Get(ctx)
+		if err != nil {
+			// Error handling code can be added here.
+			atomic.AddUint64(&totalErrors, 1)
+			return
+		}
+	}(result)
+
+	wg.Wait()
+
+	if totalErrors > 0 {
+		return fmt.Errorf("%d messages did not publish successfully", totalErrors)
 	}
 
 	return nil

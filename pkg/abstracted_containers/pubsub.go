@@ -3,11 +3,7 @@ package abstractedcontainers
 import (
 	"context"
 	"fmt"
-	"sync"
-	"sync/atomic"
-	"time"
 
-	"cloud.google.com/go/pubsub"
 	"github.com/docker/go-connections/nat"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -87,101 +83,4 @@ func SetupGCPPubsub(ctx context.Context, projectID string, topicSubscriptionMap 
 		LivenessProbePort: livenessProbePort,
 		PubSubPort:        pubSubPort,
 	}, nil
-}
-
-func GetOrCreateGCPTopic(ctx context.Context, client *pubsub.Client, topicID string) (*pubsub.Topic, error) {
-	topic := client.Topic(topicID)
-
-	ok, err := topic.Exists(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	if !ok {
-		if _, err = client.CreateTopic(ctx, topicID); err != nil {
-			return nil, err
-		}
-	}
-
-	return topic, nil
-}
-
-func PublishToGCPTopic(ctx context.Context, client *pubsub.Client, topic *pubsub.Topic, payload []byte) error {
-	var wg sync.WaitGroup
-	var totalErrors uint64
-
-	result := topic.Publish(ctx, &pubsub.Message{
-		Data: payload,
-	})
-
-	wg.Add(1)
-
-	go func(res *pubsub.PublishResult) {
-		defer wg.Done()
-		// The Get method blocks until a server-generated ID or
-		// an error is returned for the published message.
-		id, err := res.Get(ctx)
-		if err != nil {
-			// Error handling code can be added here.
-			fmt.Printf("Failed to publish: %v", err)
-			atomic.AddUint64(&totalErrors, 1)
-			return
-		}
-
-		fmt.Printf("Published message %d; msg ID: %v\n", 1, id)
-	}(result)
-
-	wg.Wait()
-
-	if totalErrors > 0 {
-		return fmt.Errorf("%d messages did not publish successfully", totalErrors)
-	}
-
-	return nil
-}
-
-func toReadableSliceOfStrings(raw [][]byte) []string {
-	result := make([]string, len(raw))
-
-	for i := range raw {
-		result[i] = string(raw[i])
-	}
-
-	return result
-}
-
-// Receive messages for a given duration, which simplifies testing.
-func AwaitGCPMessageInSub(ctx context.Context, client *pubsub.Client, subscriptionID string, expectedData [][]byte, timeToWait time.Duration) error {
-	sub := client.Subscription(subscriptionID)
-
-	ctx, cancel := context.WithTimeout(ctx, timeToWait)
-	defer cancel()
-
-	var receivedData [][]byte
-
-	mu := &sync.Mutex{}
-
-	err := sub.Receive(ctx, func(_ context.Context, msg *pubsub.Message) {
-		fmt.Printf("Got message: %q\n", string(msg.Data))
-
-		mu.Lock()
-		receivedData = append(receivedData, msg.Data)
-		mu.Unlock()
-
-		msg.Ack()
-		// cancel()
-	})
-	if err != nil {
-		return fmt.Errorf("sub.Receive: %v", err)
-	}
-
-	if !UnorderedEqualByteArrays(expectedData, receivedData) {
-		return fmt.Errorf(
-			"received data is different than expected:\n received %v\n expected %v\n",
-			toReadableSliceOfStrings(receivedData),
-			toReadableSliceOfStrings(expectedData),
-		)
-	}
-
-	return nil
 }

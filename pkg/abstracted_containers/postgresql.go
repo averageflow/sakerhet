@@ -3,12 +3,8 @@ package abstractedcontainers
 import (
 	"context"
 	"fmt"
-	"log"
-	"strings"
 
 	"github.com/docker/go-connections/nat"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
@@ -66,60 +62,4 @@ func SetupPostgreSQL(ctx context.Context, user, pass, db string) (*PostgreSQLCon
 		PostgreSQLDB:            db,
 		PostgreSQLConnectionURL: uri,
 	}, nil
-}
-
-func InitPostgreSQLSchema(ctx context.Context, db *pgxpool.Pool, schema []string) error {
-	query := strings.Join(schema, ";\n")
-
-	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
-
-	if err != nil {
-		return err
-	}
-
-	if _, err := tx.Conn().Exec(ctx, query); err != nil {
-		return err
-	}
-
-	return tx.Commit(ctx)
-}
-
-func TruncatePostgreSQLTable(ctx context.Context, db *pgxpool.Pool, tables []string) error {
-	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
-
-	if err != nil {
-		return err
-	}
-
-	if _, err := tx.Conn().Exec(ctx, fmt.Sprintf(`TRUNCATE TABLE %s;`, strings.Join(tables, ", "))); err != nil {
-		return err
-	}
-
-	return tx.Commit(ctx)
-}
-
-func SeedPostgreSQLData(ctx context.Context, db *pgxpool.Pool, query string, data [][]any) error {
-	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
-
-	if err != nil {
-		log.Println(err.Error())
-		return err
-	}
-
-	for _, v := range data {
-		if _, err := tx.Conn().Exec(ctx, query, v...); err != nil {
-			return err
-		}
-	}
-
-	return tx.Commit(ctx)
 }

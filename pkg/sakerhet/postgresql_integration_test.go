@@ -3,7 +3,6 @@ package sakerhet_test
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"reflect"
 	"strconv"
@@ -99,11 +98,8 @@ func (suite *PostgreSQLTestSuite) TearDownSuite() {
 }
 
 func TestPostgreSQLTestSuite(t *testing.T) {
-	if os.Getenv("SAKERHET_RUN_INTEGRATION_TESTS") == "" {
-		t.Skip("Skipping integration tests! Set variable SAKERHET_RUN_INTEGRATION_TESTS to run them!")
-	} else {
-		suite.Run(t, new(PostgreSQLTestSuite))
-	}
+	sakerhet.SkipIntegrationTestsWhenUnitTesting(t)
+	suite.Run(t, new(PostgreSQLTestSuite))
 }
 
 func (suite *PostgreSQLTestSuite) TestHighLevelIntegrationTestPostgreSQL() {
@@ -136,9 +132,6 @@ func (suite *PostgreSQLTestSuite) TestHighLevelIntegrationTestPostgreSQL() {
 		},
 	}
 
-	log.Printf("%+v", suite.DBPool)
-	log.Printf("%+v", suite.TestContext)
-
 	if err := suite.IntegrationTester.PostgreSQLIntegrationTester.SeedData(suite.TestContext, suite.DBPool, situation.Seeds); err != nil {
 		suite.T().Fatal(err)
 	}
@@ -166,9 +159,7 @@ func (suite *PostgreSQLTestSuite) TestHighLevelIntegrationTestPostgreSQL() {
 }
 
 func TestLowLevelIntegrationTestPostgreSQL(t *testing.T) {
-	if os.Getenv("SAKERHET_RUN_INTEGRATION_TESTS") == "" {
-		t.Skip()
-	}
+	sakerhet.SkipIntegrationTestsWhenUnitTesting(t)
 
 	// given
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*60))
@@ -207,7 +198,7 @@ func TestLowLevelIntegrationTestPostgreSQL(t *testing.T) {
 		`,
 	}
 
-	if err := abstractedcontainers.InitPostgreSQLSchema(ctx, dbpool, initialSchema); err != nil {
+	if err := sakerhet.InitPostgreSQLSchema(ctx, dbpool, initialSchema); err != nil {
 		t.Fatal(err)
 	}
 
@@ -217,7 +208,7 @@ func TestLowLevelIntegrationTestPostgreSQL(t *testing.T) {
 	}
 
 	// when
-	if err := abstractedcontainers.SeedPostgreSQLData(ctx, dbpool, insertQuery, seedData); err != nil {
+	if err := sakerhet.SeedPostgreSQLData(ctx, dbpool, insertQuery, seedData); err != nil {
 		t.Fatal(err)
 	}
 
