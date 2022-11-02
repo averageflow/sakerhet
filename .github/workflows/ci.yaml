@@ -57,7 +57,6 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GOLANG_VERSION }}
-          cache: ${{ env.GOLANG_CACHE_DEPENDENCIES }}
       - uses: golangci/golangci-lint-action@v3
         with:
           version: ${{ env.GOLANG_CI_LINT_VERSION }}
