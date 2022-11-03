@@ -94,7 +94,7 @@ func (suite *PostgreSQLTestSuite) TearDownTest() {
 // After suite ends
 func (suite *PostgreSQLTestSuite) TearDownSuite() {
 	suite.DBPool.Close()
-	_ = suite.PostgreSQLContainer.Terminate(suite.TestContext)
+	_ = suite.PostgreSQLContainer.Terminate(context.Background())
 }
 
 // Start the test suite if we are running integration tests

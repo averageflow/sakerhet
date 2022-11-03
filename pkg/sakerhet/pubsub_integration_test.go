@@ -54,7 +54,7 @@ func (suite *GCPPubSubTestSuite) SetupTest() {
 // After suite ends
 func (suite *GCPPubSubTestSuite) TearDownSuite() {
 	// Spin down the container
-	_ = suite.GCPPubSubContainer.Terminate(suite.TestContext)
+	_ = suite.GCPPubSubContainer.Terminate(context.Background())
 }
 
 // Start the test suite if we are running integration tests
