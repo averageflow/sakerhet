@@ -165,21 +165,22 @@ func TestLowLevelIntegrationTestPostgreSQL(t *testing.T) {
 	sakerhet.SkipIntegrationTestsWhenUnitTesting(t)
 
 	// given
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*60))
-	defer cancel()
 
 	password := fmt.Sprintf("password-%s", uuid.NewString())
 	user := fmt.Sprintf("user-%s", uuid.NewString())
 	db := fmt.Sprintf("db-%s", uuid.NewString())
 
-	postgreSQLC, err := abstractedcontainers.SetupPostgreSQL(ctx, user, password, db)
+	postgreSQLC, err := abstractedcontainers.SetupPostgreSQL(context.Background(), user, password, db)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), sakerhet.GetIntegrationTestTimeout())
+	defer cancel()
+
 	// clean up the container after the test is complete
 	defer func() {
-		_ = postgreSQLC.Terminate(ctx)
+		_ = postgreSQLC.Terminate(context.Background())
 	}()
 
 	dbpool, err := pgxpool.New(ctx, postgreSQLC.PostgreSQLConnectionURL)
@@ -249,7 +250,7 @@ func TestLowLevelIntegrationTestPostgreSQL(t *testing.T) {
 		{userId: 1, username: "myUser", email: "myEmail", age: 25, createdOn: 1234567},
 	}
 
-	if !sakerhet.UnorderedEqual[account](result, expected) {
+	if !sakerhet.UnorderedEqual(result, expected) {
 		t.Fatal(fmt.Errorf(
 			"received data is different than expected:\n received %v\n expected %v\n",
 			result,

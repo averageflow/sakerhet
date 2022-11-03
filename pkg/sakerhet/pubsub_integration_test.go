@@ -125,21 +125,21 @@ func TestLowLevelIntegrationTestGCPPubSub(t *testing.T) {
 	topicID := "test-topic-" + uuid.New().String()
 	subscriptionID := "test-sub-" + uuid.New().String()
 
-	ctx, cancel := context.WithTimeout(context.Background(), sakerhet.GetIntegrationTestTimeout())
-	defer cancel()
-
 	topicSubscriptionMap := map[string][]string{
 		topicID: {subscriptionID},
 	}
 
-	pubSubContainer, err := abstractedcontainers.SetupGCPPubsub(ctx, projectID, topicSubscriptionMap)
+	pubSubContainer, err := abstractedcontainers.SetupGCPPubsub(context.Background(), projectID, topicSubscriptionMap)
 	if err != nil {
 		t.Error(err)
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), sakerhet.GetIntegrationTestTimeout())
+	defer cancel()
+
 	// clean up the container after the test is complete
 	defer func() {
-		_ = pubSubContainer.Terminate(ctx)
+		_ = pubSubContainer.Terminate(context.Background())
 	}()
 
 	conn, err := grpc.Dial(pubSubContainer.URI, grpc.WithTransportCredentials(insecure.NewCredentials()))
