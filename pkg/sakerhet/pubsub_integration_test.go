@@ -138,9 +138,9 @@ func TestLowLevelIntegrationTestGCPPubSub(t *testing.T) {
 	defer cancel()
 
 	// clean up the container after the test is complete
-	defer func() {
-		_ = pubSubContainer.Terminate(context.Background())
-	}()
+	// defer func() {
+	// 	_ = pubSubContainer.Terminate(context.Background())
+	// }()
 
 	conn, err := grpc.Dial(pubSubContainer.URI, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
