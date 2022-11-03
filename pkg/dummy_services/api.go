@@ -15,17 +15,27 @@ type SomeTestAPI interface {
 	Stop()
 }
 
-type DummyAPI struct {
+type dummyAPI struct {
 	server      *http.Server
 	stopChannel chan os.Signal
 }
 
 func timeHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Unsupported HTTP method!", http.StatusUnprocessableEntity)
+		return
+	}
+
 	tm := time.Now().Format(time.RFC1123)
 	_, _ = w.Write([]byte("The time is: " + tm))
 }
 
 func customStatusResponseHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Unsupported HTTP method!", http.StatusUnprocessableEntity)
+		return
+	}
+
 	type expectedBodyData struct {
 		WantedResponseCode int `json:"wantedResponseCode"`
 	}
@@ -54,12 +64,12 @@ func dummyHandlers() http.Handler {
 	return mux
 }
 
-func (d *DummyAPI) Start() {
-	server := &http.Server{Addr: ":8765", Handler: dummyHandlers()}
-
+func (d *dummyAPI) Start() {
+	// fmt.Println("Starting dummy HTTP server at :8765!")
+	d.server = &http.Server{Addr: ":8765", Handler: dummyHandlers()}
 	go func() {
-		if err := server.ListenAndServe(); err != nil {
-			panic(err)
+		if err := d.server.ListenAndServe(); err != nil {
+			// panic(err)
 		}
 	}()
 
@@ -69,14 +79,15 @@ func (d *DummyAPI) Start() {
 	<-d.stopChannel
 }
 
-func (d *DummyAPI) Stop() {
+func (d *dummyAPI) Stop() {
+	// fmt.Println("Stopping dummy HTTP server!")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := d.server.Shutdown(ctx); err != nil {
-		panic(err)
+		// panic(err)
 	}
 }
 
 func NewSomeTestAPI() SomeTestAPI {
-	return &DummyAPI{}
+	return &dummyAPI{}
 }
