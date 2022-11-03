@@ -3,11 +3,14 @@ package sakerhet
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"testing"
+	"time"
 )
 
 const (
-	SakerhetRunIntegrationTestsEnvVar = "SAKERHET_RUN_INTEGRATION_TESTS"
+	SakerhetRunIntegrationTestsEnvVar      = "SAKERHET_RUN_INTEGRATION_TESTS"
+	SakerhetIntegrationTestsTimeoutSeconds = "SAKERHET_INTEGRATION_TEST_TIMEOUT"
 )
 
 func UnorderedEqualByteArrays(first, second [][]byte) bool {
@@ -54,4 +57,16 @@ func SkipIntegrationTestsWhenUnitTesting(t *testing.T) {
 	if os.Getenv(SakerhetRunIntegrationTestsEnvVar) == "" {
 		t.Skip("Skipping integration tests! Set variable SAKERHET_RUN_INTEGRATION_TESTS to run them!")
 	}
+}
+
+func GetIntegrationTestTimeout() time.Duration {
+	integrationTestTimeout := int64(60)
+
+	if givenTimeout := os.Getenv(SakerhetIntegrationTestsTimeoutSeconds); givenTimeout != "" {
+		if x, err := strconv.ParseInt(givenTimeout, 10, 64); err == nil {
+			integrationTestTimeout = x
+		}
+	}
+
+	return time.Duration(integrationTestTimeout) * time.Second
 }

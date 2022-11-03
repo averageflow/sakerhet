@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+// Test suite demonstrating the use of Säkerhet + testcontainers for PostgreSQL
 type PostgreSQLTestSuite struct {
 	suite.Suite
 	TestContext         context.Context
@@ -34,7 +35,7 @@ func (suite *PostgreSQLTestSuite) SetupSuite() {
 		PostgreSQL: &sakerhet.PostgreSQLIntegrationTestParams{},
 	})
 
-	// create PostgreSQL container
+	// Spin up one PostgreSQL container for all the tests in the suite
 	postgreSQLC, err := suite.IntegrationTester.PostgreSQLIntegrationTester.ContainerStart(ctx)
 	if err != nil {
 		suite.T().Fatal(err)
@@ -42,7 +43,7 @@ func (suite *PostgreSQLTestSuite) SetupSuite() {
 
 	suite.PostgreSQLContainer = postgreSQLC
 
-	// create DB pool that will be reused across tests
+	// Create DB pool that will be reused across tests
 	dbpool, err := pgxpool.New(ctx, suite.PostgreSQLContainer.PostgreSQLConnectionURL)
 	if err != nil {
 		suite.T().Fatal(fmt.Errorf("Unable to create connection pool: %v\n", err))
@@ -50,7 +51,7 @@ func (suite *PostgreSQLTestSuite) SetupSuite() {
 
 	suite.DBPool = dbpool
 
-	// setup schema that will be reused across tests
+	// Setup schema that will be reused across tests
 	initialSchema := []string{
 		`
 		CREATE TABLE accounts (
@@ -91,17 +92,19 @@ func (suite *PostgreSQLTestSuite) TearDownTest() {
 	}
 }
 
-// After suite finishes
+// After suite ends
 func (suite *PostgreSQLTestSuite) TearDownSuite() {
 	suite.DBPool.Close()
 	_ = suite.PostgreSQLContainer.Terminate(suite.TestContext)
 }
 
+// Start the test suite if we are running integration tests
 func TestPostgreSQLTestSuite(t *testing.T) {
 	sakerhet.SkipIntegrationTestsWhenUnitTesting(t)
 	suite.Run(t, new(PostgreSQLTestSuite))
 }
 
+// High level test on code that uses PostgreSQL
 func (suite *PostgreSQLTestSuite) TestHighLevelIntegrationTestPostgreSQL() {
 	type account struct {
 		userId    int
@@ -158,6 +161,7 @@ func (suite *PostgreSQLTestSuite) TestHighLevelIntegrationTestPostgreSQL() {
 	}
 }
 
+// Low level test with full control on testing code that uses PostgreSQL
 func TestLowLevelIntegrationTestPostgreSQL(t *testing.T) {
 	sakerhet.SkipIntegrationTestsWhenUnitTesting(t)
 
@@ -242,7 +246,6 @@ func TestLowLevelIntegrationTestPostgreSQL(t *testing.T) {
 		result = append(result, acc)
 	}
 
-	// then
 	expected := []account{
 		{userId: 1, username: "myUser", email: "myEmail", age: 25, createdOn: 1234567},
 	}

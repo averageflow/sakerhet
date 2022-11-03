@@ -4,14 +4,12 @@ package sakerhet_test
 import (
 	"context"
 	"fmt"
-	"math"
-	"os"
-	"strconv"
 	"testing"
 	"time"
 
 	"cloud.google.com/go/pubsub"
 	abstractedcontainers "github.com/averageflow/sakerhet/pkg/abstracted_containers"
+	dummyservices "github.com/averageflow/sakerhet/pkg/dummy_services"
 	"github.com/averageflow/sakerhet/pkg/sakerhet"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
@@ -20,6 +18,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+// Test suite demonstrating the use of Säkerhet + testcontainers for GCP Pub/Sub
 type GCPPubSubTestSuite struct {
 	suite.Suite
 	TestContext        context.Context
@@ -36,34 +35,29 @@ func (suite *GCPPubSubTestSuite) SetupSuite() {
 		GCPPubSub: &sakerhet.GCPPubSubIntegrationTestParams{},
 	})
 
-	pubSubC, err := suite.IntegrationTester.GCPPubSubIntegrationTester.ContainerStart(ctx)
+	// Spin up one GCP Pub/Sub container for all the tests in the suite
+	pubSubContainer, err := suite.IntegrationTester.GCPPubSubIntegrationTester.ContainerStart(ctx)
 	if err != nil {
 		suite.T().Fatal(err)
 	}
 
-	suite.GCPPubSubContainer = pubSubC
+	suite.GCPPubSubContainer = pubSubContainer
 }
 
 // Before each test
 func (suite *GCPPubSubTestSuite) SetupTest() {
-	integrationTestTimeout := int64(60)
-
-	if givenTimeout := os.Getenv("SAKERHET_INTEGRATION_TEST_TIMEOUT"); givenTimeout != "" {
-		if x, err := strconv.ParseInt(givenTimeout, 10, 64); err == nil {
-			integrationTestTimeout = x
-		}
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(integrationTestTimeout)*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), sakerhet.GetIntegrationTestTimeout())
 	suite.TestContext = ctx
 	suite.TestContextCancel = cancel
 }
 
 // After suite ends
 func (suite *GCPPubSubTestSuite) TearDownSuite() {
+	// Spin down the container
 	_ = suite.GCPPubSubContainer.Terminate(suite.TestContext)
 }
 
+// Start the test suite if we are running integration tests
 func TestGCPPubSubTestSuite(t *testing.T) {
 	sakerhet.SkipIntegrationTestsWhenUnitTesting(t)
 	suite.Run(t, new(GCPPubSubTestSuite))
@@ -71,18 +65,18 @@ func TestGCPPubSubTestSuite(t *testing.T) {
 
 // High level test on code that pushes to Pub/Sub
 func (suite *GCPPubSubTestSuite) TestHighLevelIntegrationTestGCPPubSub() {
-	wantedData := []byte(`{"myKey": "myValue"}`)
+	// given
+	payload := []byte(`{"myKey": "myValue"}`)
 
 	// when
-	if err := suite.IntegrationTester.GCPPubSubIntegrationTester.PublishData(suite.TestContext, wantedData); err != nil {
+	if err := suite.IntegrationTester.GCPPubSubIntegrationTester.PublishData(suite.TestContext, payload); err != nil {
 		suite.T().Fatal(err)
 	}
 
 	// then
-	expectedData := [][]byte{[]byte(wantedData)}
+	expectedData := [][]byte{[]byte(payload)}
 	if err := suite.IntegrationTester.GCPPubSubIntegrationTester.ContainsWantedMessages(
 		suite.TestContext,
-		1*time.Second,
 		expectedData,
 	); err != nil {
 		suite.T().Fatal(err)
@@ -91,21 +85,12 @@ func (suite *GCPPubSubTestSuite) TestHighLevelIntegrationTestGCPPubSub() {
 
 // High level test of a service that publishes to Pub/Sub
 func (suite *GCPPubSubTestSuite) TestHighLevelIntegrationTestOfServiceThatUsesGCPPubSub() {
-	// simple service that does a computation and publishes to Pub/Sub
-	type myPowerOfNService struct {
-		toPowerOfN func(float64, float64) float64
-	}
-
-	newMyPowerOfNService := func() myPowerOfNService {
-		return myPowerOfNService{
-			toPowerOfN: func(x float64, n float64) float64 { return math.Pow(x, n) },
-		}
-	}
+	// given
+	powerOfNService := dummyservices.NewMyPowerOfNService()
 
 	// when
-	ponService := newMyPowerOfNService()
-	x := ponService.toPowerOfN(3, 3)
-	y := ponService.toPowerOfN(4, 2)
+	x := powerOfNService.ToPowerOfN(3, 3)
+	y := powerOfNService.ToPowerOfN(4, 2)
 
 	if err := suite.IntegrationTester.GCPPubSubIntegrationTester.PublishData(
 		suite.TestContext,
@@ -125,7 +110,6 @@ func (suite *GCPPubSubTestSuite) TestHighLevelIntegrationTestOfServiceThatUsesGC
 	expectedData := [][]byte{[]byte(`{"computationResult": 27.00}`), []byte(`{"computationResult": 16.00}`)}
 	if err := suite.IntegrationTester.GCPPubSubIntegrationTester.ContainsWantedMessages(
 		suite.TestContext,
-		1*time.Second,
 		expectedData,
 	); err != nil {
 		suite.T().Fatal(err)
@@ -141,34 +125,34 @@ func TestLowLevelIntegrationTestGCPPubSub(t *testing.T) {
 	topicID := "test-topic-" + uuid.New().String()
 	subscriptionID := "test-sub-" + uuid.New().String()
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*60))
+	ctx, cancel := context.WithTimeout(context.Background(), sakerhet.GetIntegrationTestTimeout())
 	defer cancel()
 
 	topicSubscriptionMap := map[string][]string{
 		topicID: {subscriptionID},
 	}
 
-	pubSubC, err := abstractedcontainers.SetupGCPPubsub(ctx, projectID, topicSubscriptionMap)
+	pubSubContainer, err := abstractedcontainers.SetupGCPPubsub(ctx, projectID, topicSubscriptionMap)
 	if err != nil {
 		t.Error(err)
 	}
 
 	// clean up the container after the test is complete
 	defer func() {
-		_ = pubSubC.Terminate(ctx)
+		_ = pubSubContainer.Terminate(ctx)
 	}()
 
-	conn, err := grpc.Dial(pubSubC.URI, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(pubSubContainer.URI, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatal(fmt.Errorf("grpc.Dial: %v", err))
 	}
 
-	o := []option.ClientOption{
+	gcpPubSubClientOptions := []option.ClientOption{
 		option.WithGRPCConn(conn),
 		option.WithTelemetryDisabled(),
 	}
 
-	client, err := pubsub.NewClientWithConfig(ctx, projectID, nil, o...)
+	client, err := pubsub.NewClientWithConfig(ctx, projectID, nil, gcpPubSubClientOptions...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,15 +165,14 @@ func TestLowLevelIntegrationTestGCPPubSub(t *testing.T) {
 	}
 
 	// when
-	wantedData := []byte(`{"myKey": "myValue"}`)
-
-	if err := sakerhet.PublishToGCPTopic(ctx, client, topic, wantedData); err != nil {
+	payload := []byte(`{"myKey": "myValue"}`)
+	if err := sakerhet.PublishToGCPTopic(ctx, client, topic, payload); err != nil {
 		t.Fatal(err)
 	}
 
 	// then
-	expectedData := [][]byte{[]byte(wantedData)}
-	if err := sakerhet.AwaitGCPMessageInSub(ctx, client, subscriptionID, expectedData, 1*time.Second); err != nil {
+	expectedData := [][]byte{[]byte(payload)}
+	if err := sakerhet.AwaitGCPMessageInSub(ctx, client, subscriptionID, expectedData, 1500*time.Millisecond); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -45,4 +45,4 @@ Integration tests can then be run with `export SAKERHET_RUN_INTEGRATION_TESTS=Y;
 
 This allows a clean separation of test runs. Take a look at the [Makefile](Makefile) in the root of the repo for examples.
 
-There is another special variable, `SAKERHET_INTEGRATION_TEST_TIMEOUT` which configures the timeout of each integration test in seconds.
+There is another special variable, `SAKERHET_INTEGRATION_TEST_TIMEOUT` which configures the timeout of each integration test in seconds. This variable defaults to `60`.

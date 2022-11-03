@@ -84,7 +84,11 @@ func (g *GCPPubSubIntegrationTester) CreateClient(ctx context.Context) (*pubsub.
 	return client, nil
 }
 
-func (g *GCPPubSubIntegrationTester) ContainsWantedMessages(ctx context.Context, timeToTimeout time.Duration, expectedData [][]byte) error {
+func (g *GCPPubSubIntegrationTester) ContainsWantedMessages(ctx context.Context, expectedData [][]byte) error {
+	return g.ContainsWantedMessagesInDuration(ctx, expectedData, 1500*time.Millisecond)
+}
+
+func (g *GCPPubSubIntegrationTester) ContainsWantedMessagesInDuration(ctx context.Context, expectedData [][]byte, timeToTimeout time.Duration) error {
 	client, err := g.CreateClient(ctx)
 	if err != nil {
 		return err
