@@ -3,10 +3,7 @@ package sakerhet_test
 import (
 	"context"
 	"fmt"
-	"os"
-	"strconv"
 	"testing"
-	"time"
 
 	abstractedcontainers "github.com/averageflow/sakerhet/pkg/abstracted_containers"
 	"github.com/averageflow/sakerhet/pkg/sakerhet"
@@ -70,23 +67,18 @@ func (suite *PostgreSQLTestSuite) SetupSuite() {
 
 // Before each test
 func (suite *PostgreSQLTestSuite) SetupTest() {
-	integrationTestTimeout := int64(60)
-
-	if givenTimeout := os.Getenv("SAKERHET_INTEGRATION_TEST_TIMEOUT"); givenTimeout != "" {
-		if x, err := strconv.ParseInt(givenTimeout, 10, 64); err == nil {
-			integrationTestTimeout = x
-		}
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(integrationTestTimeout)*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), sakerhet.GetIntegrationTestTimeout())
 	suite.TestContext = ctx
 	suite.TestContextCancel = cancel
 }
 
 // After each test
 func (suite *PostgreSQLTestSuite) TearDownTest() {
-	ctx := context.Background()
-	if err := suite.IntegrationTester.PostgreSQLIntegrationTester.TruncateTable(ctx, suite.DBPool, []string{"accounts"}); err != nil {
+	if err := suite.IntegrationTester.PostgreSQLIntegrationTester.TruncateTable(
+		context.Background(),
+		suite.DBPool,
+		[]string{"accounts"},
+	); err != nil {
 		suite.T().Fatal(err)
 	}
 }
@@ -165,7 +157,6 @@ func TestLowLevelIntegrationTestPostgreSQL(t *testing.T) {
 	sakerhet.SkipIntegrationTestsWhenUnitTesting(t)
 
 	// given
-
 	password := fmt.Sprintf("password-%s", uuid.NewString())
 	user := fmt.Sprintf("user-%s", uuid.NewString())
 	db := fmt.Sprintf("db-%s", uuid.NewString())
