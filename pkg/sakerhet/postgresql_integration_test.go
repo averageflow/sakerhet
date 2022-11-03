@@ -40,7 +40,7 @@ func (suite *PostgreSQLTestSuite) SetupSuite() {
 	suite.PostgreSQLContainer = postgreSQLC
 
 	// Create DB pool that will be reused across tests
-	dbpool, err := pgxpool.New(ctx, suite.PostgreSQLContainer.PostgreSQLConnectionURL)
+	dbpool, err := pgxpool.New(ctx, suite.PostgreSQLContainer.ConnectionURL)
 	if err != nil {
 		suite.T().Fatal(fmt.Errorf("Unable to create connection pool: %v\n", err))
 	}
@@ -174,7 +174,7 @@ func TestLowLevelIntegrationTestPostgreSQL(t *testing.T) {
 		_ = postgreSQLC.Terminate(context.Background())
 	}()
 
-	dbpool, err := pgxpool.New(ctx, postgreSQLC.PostgreSQLConnectionURL)
+	dbpool, err := pgxpool.New(ctx, postgreSQLC.ConnectionURL)
 	if err != nil {
 		t.Fatal(fmt.Errorf("Unable to create connection pool: %v\n", err))
 	}

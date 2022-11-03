@@ -11,10 +11,10 @@ import (
 
 type PostgreSQLContainer struct {
 	testcontainers.Container
-	URI                     string
-	PostgreSQLPort          nat.Port
-	PostgreSQLDB            string
-	PostgreSQLConnectionURL string
+	Host          string
+	MappedPort    string
+	DB            string
+	ConnectionURL string
 }
 
 func SetupPostgreSQL(ctx context.Context, user, pass, db string) (*PostgreSQLContainer, error) {
@@ -56,10 +56,10 @@ func SetupPostgreSQL(ctx context.Context, user, pass, db string) (*PostgreSQLCon
 	uri := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", user, pass, hostIP, mappedPort.Port(), db)
 
 	return &PostgreSQLContainer{
-		Container:               postgreSQLC,
-		URI:                     uri,
-		PostgreSQLPort:          postgreSQLPort,
-		PostgreSQLDB:            db,
-		PostgreSQLConnectionURL: uri,
+		Container:     postgreSQLC,
+		Host:          hostIP,
+		MappedPort:    mappedPort.Port(),
+		DB:            db,
+		ConnectionURL: uri,
 	}, nil
 }
