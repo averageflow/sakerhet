@@ -42,7 +42,7 @@ func SetupGCPPubsub(ctx context.Context, projectID string, topicSubscriptionMap 
 	}
 
 	req := testcontainers.ContainerRequest{
-		Image: "thekevjames/gcloud-pubsub-emulator:288dcd38bb",
+		Image: "thekevjames/gcloud-pubsub-emulator:406.0.0",
 		ExposedPorts: []string{
 			fmt.Sprintf("%s/%s", livenessProbePort.Port(), livenessProbePort.Proto()),
 			fmt.Sprintf("%s/%s", pubSubPort.Port(), pubSubPort.Proto()),
