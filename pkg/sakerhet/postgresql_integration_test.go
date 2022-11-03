@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"reflect"
 	"strconv"
 	"testing"
 	"time"
@@ -250,7 +249,7 @@ func TestLowLevelIntegrationTestPostgreSQL(t *testing.T) {
 		{userId: 1, username: "myUser", email: "myEmail", age: 25, createdOn: 1234567},
 	}
 
-	if !reflect.DeepEqual(result, expected) {
+	if !sakerhet.UnorderedEqual[account](result, expected) {
 		t.Fatal(fmt.Errorf(
 			"received data is different than expected:\n received %v\n expected %v\n",
 			result,

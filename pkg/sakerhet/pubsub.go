@@ -161,7 +161,7 @@ func AwaitGCPMessageInSub(ctx context.Context, client *pubsub.Client, subscripti
 		return fmt.Errorf("sub.Receive: %v", err)
 	}
 
-	if !UnorderedEqualByteArrays(expectedData, receivedData) {
+	if !UnorderedEqual(expectedData, receivedData) {
 		return fmt.Errorf(
 			"received data is different than expected:\n received %v\n expected %v\n",
 			toReadableSliceOfStrings(receivedData),

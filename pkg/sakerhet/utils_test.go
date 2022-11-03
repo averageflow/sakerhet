@@ -19,68 +19,33 @@ func TestUnorderedEqualTestSuite(t *testing.T) {
 }
 
 func (suite *UnorderedEqualTestSuite) TestUnorderedEqual() {
-	type unorderedEqualTestCase struct {
-		left            []any
-		right           []any
-		expectToBeEqual bool
-	}
+	assert.True(suite.T(), sakerhet.UnorderedEqual(
+		[]string{"one", "two"},
+		[]string{"two", "one"},
+	))
 
-	sut := []unorderedEqualTestCase{
-		{
-			left:            []any{"one", "two"},
-			right:           []any{"two", "one"},
-			expectToBeEqual: true,
-		},
-		{
-			left:            []any{true, true, false},
-			right:           []any{false, true, true},
-			expectToBeEqual: true,
-		},
-		{
-			left:            []any{1, 2, 3},
-			right:           []any{3, 2, 1},
-			expectToBeEqual: true,
-		},
-		{
-			left:            []any{1, 3},
-			right:           []any{2, 3},
-			expectToBeEqual: false,
-		},
-		{
-			left:            []any{"one"},
-			right:           []any{"two"},
-			expectToBeEqual: false,
-		},
-	}
+	assert.True(suite.T(), sakerhet.UnorderedEqual(
+		[]bool{true, true, false},
+		[]bool{false, true, true},
+	))
 
-	for _, v := range sut {
-		areEqual := sakerhet.UnorderedEqual(v.left, v.right)
-		assert.Equal(suite.T(), v.expectToBeEqual, areEqual)
-	}
-}
+	assert.False(suite.T(), sakerhet.UnorderedEqual(
+		[]int{1, 3},
+		[]int{2, 3},
+	))
 
-func (suite *UnorderedEqualTestSuite) TestUnorderedEqualByteArrays() {
-	type unorderedEqualTestCase struct {
-		left            [][]byte
-		right           [][]byte
-		expectToBeEqual bool
-	}
+	assert.False(suite.T(), sakerhet.UnorderedEqual(
+		[]string{"one"},
+		[]string{"two"},
+	))
 
-	sut := []unorderedEqualTestCase{
-		{
-			left:            [][]byte{[]byte(`{"foo": "bar"}`), []byte(`!@#$%^&*()`)},
-			right:           [][]byte{[]byte(`!@#$%^&*()`), []byte(`{"foo": "bar"}`)},
-			expectToBeEqual: true,
-		},
-		{
-			left:            [][]byte{[]byte(`someBytes`)},
-			right:           [][]byte{[]byte(`someBytes`), []byte(`moreBytes`)},
-			expectToBeEqual: false,
-		},
-	}
+	assert.True(suite.T(), sakerhet.UnorderedEqual(
+		[][]byte{[]byte(`{"foo": "bar"}`), []byte(`!@#$%^&*()`)},
+		[][]byte{[]byte(`!@#$%^&*()`), []byte(`{"foo": "bar"}`)},
+	))
 
-	for _, v := range sut {
-		areEqual := sakerhet.UnorderedEqualByteArrays(v.left, v.right)
-		assert.Equal(suite.T(), v.expectToBeEqual, areEqual)
-	}
+	assert.False(suite.T(), sakerhet.UnorderedEqual(
+		[][]byte{[]byte(`someBytes`)},
+		[][]byte{[]byte(`someBytes`), []byte(`moreBytes`)},
+	))
 }
