@@ -65,12 +65,9 @@ func dummyHandlers() http.Handler {
 }
 
 func (d *dummyAPI) Start() {
-	// fmt.Println("Starting dummy HTTP server at :8765!")
 	d.server = &http.Server{Addr: ":8765", Handler: dummyHandlers()}
 	go func() {
-		if err := d.server.ListenAndServe(); err != nil {
-			// panic(err)
-		}
+		_ = d.server.ListenAndServe()
 	}()
 
 	d.stopChannel = make(chan os.Signal, 1)
@@ -80,12 +77,10 @@ func (d *dummyAPI) Start() {
 }
 
 func (d *dummyAPI) Stop() {
-	// fmt.Println("Stopping dummy HTTP server!")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := d.server.Shutdown(ctx); err != nil {
-		// panic(err)
-	}
+
+	_ = d.server.Shutdown(ctx)
 }
 
 func NewSomeTestAPI() SomeTestAPI {
