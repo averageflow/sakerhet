@@ -109,7 +109,7 @@ func (g *GCPPubSubIntegrationTester) ContainsWantedMessagesInDuration(ctx contex
 	return nil
 }
 
-func (g *GCPPubSubIntegrationTester) ReadMessages(ctx context.Context, expectedData [][]byte) ([][]byte, error) {
+func (g *GCPPubSubIntegrationTester) ReadMessages(ctx context.Context) ([][]byte, error) {
 	return g.ReadMessagesInDuration(ctx, 1500*time.Millisecond)
 }
 
