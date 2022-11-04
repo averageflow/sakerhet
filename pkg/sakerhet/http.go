@@ -54,17 +54,19 @@ func (s HttpIntegrationTestSituation) SituationChecker() error {
 
 	defer res.Body.Close()
 
-	received, err := io.ReadAll(res.Body)
-	if err != nil {
-		return err
+	if s.Expectation.Body != nil {
+		received, err := io.ReadAll(res.Body)
+		if err != nil {
+			return err
+		}
+
+		if !bytes.Equal(received, s.Expectation.Body) {
+			return fmt.Errorf("Unexpected data received! Expected %v, got %v", string(s.Expectation.Body), string(received))
+		}
 	}
 
-	if !bytes.Equal(received, s.Expectation.Body) {
-		return fmt.Errorf("Unexpected data received! Expected %v, got %v", string(s.Expectation.Body), string(received))
-	}
-
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("Unexpected status code received! Expected %d, got %d", http.StatusOK, res.StatusCode)
+	if res.StatusCode != s.Expectation.StatusCode {
+		return fmt.Errorf("Unexpected status code received! Expected %d, got %d", s.Expectation.StatusCode, res.StatusCode)
 	}
 
 	return nil
