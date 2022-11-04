@@ -96,7 +96,7 @@ func (g *GCPPubSubIntegrationTester) ContainsWantedMessagesInDuration(ctx contex
 
 	defer client.Close()
 
-	if err := AwaitGCPMessageInSub(
+	if err := ExpectGCPMessagesInSub(
 		ctx,
 		client,
 		g.SubscriptionID,
@@ -107,6 +107,31 @@ func (g *GCPPubSubIntegrationTester) ContainsWantedMessagesInDuration(ctx contex
 	}
 
 	return nil
+}
+
+func (g *GCPPubSubIntegrationTester) ReadMessages(ctx context.Context, expectedData [][]byte) ([][]byte, error) {
+	return g.ReadMessagesInDuration(ctx, 1500*time.Millisecond)
+}
+
+func (g *GCPPubSubIntegrationTester) ReadMessagesInDuration(ctx context.Context, timeToTimeout time.Duration) ([][]byte, error) {
+	client, err := g.CreateClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	defer client.Close()
+
+	messages, err := ReadGCPMessagesInSub(
+		ctx,
+		client,
+		g.SubscriptionID,
+		timeToTimeout,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return messages, nil
 }
 
 func (g *GCPPubSubIntegrationTester) PublishData(ctx context.Context, wantedData []byte) error {
@@ -140,7 +165,7 @@ func toReadableSliceOfStrings(raw [][]byte) []string {
 }
 
 // Receive messages for a given duration, which simplifies testing.
-func AwaitGCPMessageInSub(ctx context.Context, client *pubsub.Client, subscriptionID string, expectedData [][]byte, timeToWait time.Duration) error {
+func ExpectGCPMessagesInSub(ctx context.Context, client *pubsub.Client, subscriptionID string, expectedData [][]byte, timeToWait time.Duration) error {
 	sub := client.Subscription(subscriptionID)
 
 	ctx, cancel := context.WithTimeout(ctx, timeToWait)
@@ -170,6 +195,31 @@ func AwaitGCPMessageInSub(ctx context.Context, client *pubsub.Client, subscripti
 	}
 
 	return nil
+}
+
+// Receive messages for a given duration, which simplifies testing.
+func ReadGCPMessagesInSub(ctx context.Context, client *pubsub.Client, subscriptionID string, timeToWait time.Duration) ([][]byte, error) {
+	sub := client.Subscription(subscriptionID)
+
+	ctx, cancel := context.WithTimeout(ctx, timeToWait)
+	defer cancel()
+
+	var receivedData [][]byte
+
+	mu := &sync.Mutex{}
+
+	err := sub.Receive(ctx, func(_ context.Context, msg *pubsub.Message) {
+		mu.Lock()
+		receivedData = append(receivedData, msg.Data)
+		mu.Unlock()
+
+		msg.Ack()
+	})
+	if err != nil {
+		return nil, fmt.Errorf("sub.Receive: %v", err)
+	}
+
+	return receivedData, nil
 }
 
 func GetOrCreateGCPTopic(ctx context.Context, client *pubsub.Client, topicID string) (*pubsub.Topic, error) {

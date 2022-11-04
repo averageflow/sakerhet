@@ -172,7 +172,7 @@ func TestLowLevelIntegrationTestGCPPubSub(t *testing.T) {
 
 	// then
 	expectedData := [][]byte{[]byte(payload)}
-	if err := sakerhet.AwaitGCPMessageInSub(ctx, client, subscriptionID, expectedData, 1500*time.Millisecond); err != nil {
+	if err := sakerhet.ExpectGCPMessagesInSub(ctx, client, subscriptionID, expectedData, 1500*time.Millisecond); err != nil {
 		t.Fatal(err)
 	}
 }
