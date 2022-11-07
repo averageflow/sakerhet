@@ -24,14 +24,14 @@ type GCPPubSubTestSuite struct {
 	TestContext        context.Context
 	TestContextCancel  context.CancelFunc
 	GCPPubSubContainer *abstractedcontainers.GCPPubSubContainer
-	IntegrationTester  sakerhet.IntegrationTester
+	IntegrationTester  sakerhet.Sakerhet
 }
 
 // Before suite starts
 func (suite *GCPPubSubTestSuite) SetupSuite() {
 	ctx := context.Background()
 
-	suite.IntegrationTester = sakerhet.NewIntegrationTest(sakerhet.IntegrationTesterParams{
+	suite.IntegrationTester = sakerhet.NewSakerhetIntegrationTest(sakerhet.SakerhetBuilder{
 		GCPPubSub: &sakerhet.GCPPubSubIntegrationTestParams{},
 	})
 

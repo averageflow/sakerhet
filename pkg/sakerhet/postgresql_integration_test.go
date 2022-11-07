@@ -19,7 +19,7 @@ type PostgreSQLTestSuite struct {
 	TestContext         context.Context
 	TestContextCancel   context.CancelFunc
 	PostgreSQLContainer *abstractedcontainers.PostgreSQLContainer
-	IntegrationTester   sakerhet.IntegrationTester
+	IntegrationTester   sakerhet.Sakerhet
 	DBPool              *pgxpool.Pool
 }
 
@@ -27,7 +27,7 @@ type PostgreSQLTestSuite struct {
 func (suite *PostgreSQLTestSuite) SetupSuite() {
 	ctx := context.Background()
 
-	suite.IntegrationTester = sakerhet.NewIntegrationTest(sakerhet.IntegrationTesterParams{
+	suite.IntegrationTester = sakerhet.NewSakerhetIntegrationTest(sakerhet.SakerhetBuilder{
 		PostgreSQL: &sakerhet.PostgreSQLIntegrationTestParams{},
 	})
 

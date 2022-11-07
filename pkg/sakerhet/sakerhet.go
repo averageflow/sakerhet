@@ -1,24 +1,25 @@
 package sakerhet
 
-type IntegrationTesterParams struct {
+type SakerhetBuilder struct {
 	GCPPubSub  *GCPPubSubIntegrationTestParams
 	PostgreSQL *PostgreSQLIntegrationTestParams
 }
 
-type IntegrationTester struct {
+type Sakerhet struct {
 	GCPPubSubIntegrationTester  *GCPPubSubIntegrationTester
 	PostgreSQLIntegrationTester *PostgreSQLIntegrationTester
 }
 
-func NewIntegrationTest(userInput IntegrationTesterParams) IntegrationTester {
-	var newTest IntegrationTester
+// Sakerhet Integration test smart constructor
+func NewSakerhetIntegrationTest(sakerhetBuilder SakerhetBuilder) Sakerhet {
+	var newTest Sakerhet
 
-	if userInput.GCPPubSub != nil {
-		newTest.GCPPubSubIntegrationTester = NewGCPPubSubIntegrationTester(userInput.GCPPubSub)
+	if sakerhetBuilder.GCPPubSub != nil {
+		newTest.GCPPubSubIntegrationTester = NewGCPPubSubIntegrationTester(sakerhetBuilder.GCPPubSub)
 	}
 
-	if userInput.PostgreSQL != nil {
-		newTest.PostgreSQLIntegrationTester = NewPostgreSQLIntegrationTester(userInput.PostgreSQL)
+	if sakerhetBuilder.PostgreSQL != nil {
+		newTest.PostgreSQLIntegrationTester = NewPostgreSQLIntegrationTester(sakerhetBuilder.PostgreSQL)
 	}
 
 	return newTest
