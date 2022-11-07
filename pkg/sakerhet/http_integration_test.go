@@ -42,21 +42,21 @@ func TestHttpTestSuite(t *testing.T) {
 func (suite *HttpTestSuite) TestHighLevelHttpCalls() {
 	situation := &sakerhet.HttpIntegrationTestSituation{
 		Request: &sakerhet.HttpIntegrationTestSituationRequest{
-			URL:    "http://localhost:8765/custom-status-response",
-			Method: http.MethodPost,
-			Headers: []sakerhet.HttpHeaderValuePair{
+			RequestURL:    "http://localhost:8765/custom-status-response",
+			RequestMethod: http.MethodPost,
+			RequestHeaders: []sakerhet.HttpHeaderValuePair{
 				{Header: "Content-Type", Value: "application/json"},
 			},
-			Body: []byte(`{"wantedResponseCode": 200}`),
+			RequestBody: []byte(`{"wantedResponseCode": 200}`),
 		},
 		Expectation: &sakerhet.HttpIntegrationTestSituationExpectation{
-			StatusCode: http.StatusOK,
-			Body:       []byte(fmt.Sprintf(`{"returnedResponseCode": %d}`, http.StatusOK)),
+			ResponseStatusCode: http.StatusOK,
+			ResponseBody:       []byte(fmt.Sprintf(`{"returnedResponseCode": %d}`, http.StatusOK)),
 		},
 		Timeout: 2 * time.Second,
 	}
 
-	if err := situation.SituationChecker(); err != nil {
+	if _, err := situation.SituationChecker(); err != nil {
 		suite.T().Fatal(err.Error())
 	}
 }
